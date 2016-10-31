@@ -17,6 +17,7 @@ import vibe.core.stream;
 import vibe.core.sync;
 
 import vibe.utils.dictionarylist;
+import vibe.internal.interfaceproxy;
 
 import std.algorithm;
 import std.array;
@@ -73,6 +74,7 @@ unittest {
 /**************************************************************************************************/
 /* Public functions                                                                               */
 /**************************************************************************************************/
+@safe:
 
 /** Creates a new context of the given kind.
 
@@ -82,7 +84,7 @@ unittest {
 		ver = The TLS protocol used for negotiating the tunnel
 */
 TLSContext createTLSContext(TLSContextKind kind, TLSVersion ver = TLSVersion.any)
-{
+@trusted {
 	version (OpenSSL) {
 		static TLSContext createOpenSSLContext(TLSContextKind kind, TLSVersion ver) {
 			import vibe.stream.openssl;
@@ -113,7 +115,8 @@ TLSContext createTLSContext(TLSContextKind kind, TLSVersion ver = TLSVersion.any
 		peer_name = DNS name of the remote peer, used for certificate validation
 		peer_address = IP address of the remote peer, used for certificate validation
 */
-TLSStream createTLSStream(Stream underlying, TLSContext ctx, string peer_name = null, NetworkAddress peer_address = NetworkAddress.init)
+TLSStream createTLSStream(Stream)(Stream underlying, TLSContext ctx, string peer_name = null, NetworkAddress peer_address = NetworkAddress.init)
+	if (isStream!Stream)
 {
 	auto stream_state = ctx.kind == TLSContextKind.client ? TLSStreamState.connecting : TLSStreamState.accepting;
 	return createTLSStream(underlying, ctx, stream_state, peer_name, peer_address);
@@ -131,15 +134,17 @@ TLSStream createTLSStream(Stream underlying, TLSContext ctx, string peer_name = 
 		peer_name = DNS name of the remote peer, used for certificate validation
 		peer_address = IP address of the remote peer, used for certificate validation
 */
-TLSStream createTLSStream(Stream underlying, TLSContext ctx, TLSStreamState state, string peer_name = null, NetworkAddress peer_address = NetworkAddress.init)
+TLSStream createTLSStream(Stream)(Stream underlying, TLSContext ctx, TLSStreamState state, string peer_name = null, NetworkAddress peer_address = NetworkAddress.init)
+	if (isStream!Stream)
 {
-	return ctx.createStream(underlying, state, peer_name, peer_address);
+	return ctx.createStream(underlying.asInterface!(.Stream), state, peer_name, peer_address);
 }
 
 /**
 	Constructs a new TLS stream using manual memory allocator.
 */
-auto createTLSStreamFL(Stream underlying, TLSContext ctx, TLSStreamState state, string peer_name = null, NetworkAddress peer_address = NetworkAddress.init)
+auto createTLSStreamFL(Stream)(Stream underlying, TLSContext ctx, TLSStreamState state, string peer_name = null, NetworkAddress peer_address = NetworkAddress.init)
+	if (isStream!Stream)
 {
 	// This function has an auto return type to avoid the import of the TLS
 	// implementation headers.  When client code uses this function the compiler
@@ -149,18 +154,18 @@ auto createTLSStreamFL(Stream underlying, TLSContext ctx, TLSStreamState state, 
 		import vibe.internal.freelistref;
 		import vibe.stream.openssl;
 		static assert(AllocSize!TLSStream > 0);
-		return FreeListRef!OpenSSLStream(underlying, cast(OpenSSLContext)ctx,
+		return FreeListRef!OpenSSLStream(underlying.asInterface!(.Stream), cast(OpenSSLContext)ctx,
 										 state, peer_name, peer_address);
 	} else version (Botan) {
 		import vibe.internal.freelistref;
 		import vibe.stream.botan;
-		return FreeListRef!BotanTLSStream(cast(ConnectionStream) underlying, cast(BotanTLSContext) ctx, state, peer_name, peer_address);
+		return FreeListRef!BotanTLSStream(cast(ConnectionStream) underlying.asInterface!(.Stream), cast(BotanTLSContext) ctx, state, peer_name, peer_address);
 	} else assert(false, "No TLS support compiled in (VibeNoTLS)");
 }
 
-void setTLSContextFactory(TLSContext function(TLSContextKind, TLSVersion) factory)
+void setTLSContextFactory(TLSContext function(TLSContextKind, TLSVersion) @safe factory)
 {
-	gs_sslContextFactory = factory;
+	() @trusted { gs_sslContextFactory = factory; } ();
 }
 
 
@@ -175,6 +180,8 @@ void setTLSContextFactory(TLSContext function(TLSContextKind, TLSVersion) factor
 		tunnel is properly closed first.
 */
 interface TLSStream : Stream {
+	@safe:
+
 	@property TLSCertificateInformation peerCertificate();
 
 	//-/ The host name reported through SNI
@@ -203,6 +210,8 @@ enum TLSStreamState {
 	useTrustedCertificateFile to add those.
 */
 interface TLSContext {
+	@safe:
+
 	/// The kind of TLS context (client/server)
 	@property TLSContextKind kind() const;
 

@@ -1434,9 +1434,9 @@ private bool callBool(F, T...)(F fnc, T args)
 	}
 }
 
-private bool delegate(Variant) opsFilter(OPS...)(OPS ops)
+private bool delegate(Variant) @safe opsFilter(OPS...)(OPS ops)
 {
-	return (Variant msg) {
+	return (Variant msg) @trusted { // Variant
 		if (msg.convertsTo!Throwable) return true;
 		foreach (i, OP; OPS)
 			if (matchesHandler!OP(msg))
@@ -1445,9 +1445,9 @@ private bool delegate(Variant) opsFilter(OPS...)(OPS ops)
 	};
 }
 
-private void delegate(Variant) opsHandler(OPS...)(OPS ops)
+private void delegate(Variant) @safe opsHandler(OPS...)(OPS ops)
 {
-	return (Variant msg) {
+	return (Variant msg) @trusted  { // Variant
 		foreach (i, OP; OPS) {
 			alias PTypes = ParameterTypeTuple!OP;
 			if (matchesHandler!OP(msg)) {

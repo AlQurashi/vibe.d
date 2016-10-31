@@ -17,10 +17,39 @@ import etc.c.zlib;
 import vibe.core.log;
 
 
+/** Creates a new deflate uncompression stream.
+*/
+ZlibInputStream createDeflateInputStream(InputStream source)
+{
+	return new ZlibInputStream(source, ZlibInputStream.HeaderFormat.deflate, true);
+}
+
+/** Creates a new deflate compression stream.
+*/
+ZlibOutputStream createDeflateOutputStream(OutputStream destination)
+{
+	return new ZlibOutputStream(destination, ZlibOutputStream.HeaderFormat.deflate, Z_DEFAULT_COMPRESSION, true);
+}
+
+/** Creates a new deflate uncompression stream.
+*/
+ZlibInputStream createGzipInputStream(InputStream source)
+{
+	return new ZlibInputStream(source, ZlibInputStream.HeaderFormat.gzip, true);
+}
+
+/** Creates a new deflate uncompression stream.
+*/
+ZlibOutputStream createGzipOutputStream(OutputStream destination)
+{
+	return new ZlibOutputStream(destination, ZlibOutputStream.HeaderFormat.gzip, Z_DEFAULT_COMPRESSION, true);
+}
+
 
 /**
 	Writes any data compressed in deflate format to the specified output stream.
 */
+deprecated("Use createDeflateOutputStream instead.")
 final class DeflateOutputStream : ZlibOutputStream {
 	this(OutputStream dst)
 	{
@@ -32,6 +61,7 @@ final class DeflateOutputStream : ZlibOutputStream {
 /**
 	Writes any data compressed in gzip format to the specified output stream.
 */
+deprecated("Use createGzipOutputStream instead.")
 final class GzipOutputStream : ZlibOutputStream {
 	this(OutputStream dst)
 	{
@@ -56,7 +86,14 @@ class ZlibOutputStream : OutputStream {
 		deflate
 	}
 
+	deprecated("Use createGzipOutputStream/createDeflateOutputStream instead.")
 	this(OutputStream dst, HeaderFormat type, int level = Z_DEFAULT_COMPRESSION)
+	{
+		this(dst, type, level, true);
+	}
+
+	/// private
+	this(OutputStream dst, HeaderFormat type, int level, bool dummy)
 	{
 		m_out = dst;
 		zlibEnforce(deflateInit2(&m_zstream, level, Z_DEFLATED, 15 + (type == HeaderFormat.gzip ? 16 : 0), 8, Z_DEFAULT_STRATEGY));
@@ -72,7 +109,7 @@ class ZlibOutputStream : OutputStream {
 		if (!data.length) return;
 		assert(!m_finalized);
 		assert(m_zstream.avail_in == 0);
-		m_zstream.next_in = cast(ubyte*)data.ptr;
+		m_zstream.next_in = () @trusted { return cast(ubyte*)data.ptr; } ();
 		assert(data.length < uint.max);
 		m_zstream.avail_in = cast(uint)data.length;
 		doFlush(Z_NO_FLUSH);
@@ -98,16 +135,16 @@ class ZlibOutputStream : OutputStream {
 		m_finalized = true;
 		doFlush(Z_FINISH);
 		m_out.flush();
-		zlibEnforce(deflateEnd(&m_zstream));
+		zlibEnforce(() @trusted { return deflateEnd(&m_zstream); }());
 	}
 
 	private final void doFlush(int how)
-	{
+	@safe {
 		while (true) {
 			m_zstream.next_out = m_outbuffer.ptr;
 			m_zstream.avail_out = cast(uint)m_outbuffer.length;
 			//logInfo("deflate %s -> %s (%s)", m_zstream.avail_in, m_zstream.avail_out, how);
-			auto ret = deflate(&m_zstream, how);
+			auto ret = () @trusted { return deflate(&m_zstream, how); } ();
 			//logInfo("    ... %s -> %s", m_zstream.avail_in, m_zstream.avail_out);
 			switch (ret) {
 				default:
@@ -134,6 +171,7 @@ class ZlibOutputStream : OutputStream {
 	Takes an input stream that contains data in deflate compressed format and outputs the
 	uncompressed data.
 */
+deprecated("Use createDeflateInputStream instead.")
 class DeflateInputStream : ZlibInputStream {
 	this(InputStream dst)
 	{
@@ -146,6 +184,7 @@ class DeflateInputStream : ZlibInputStream {
 	Takes an input stream that contains data in gzip compressed format and outputs the
 	uncompressed data.
 */
+deprecated("Use createGzipInputStream instead.")
 class GzipInputStream : ZlibInputStream {
 	this(InputStream dst)
 	{
@@ -204,7 +243,14 @@ class ZlibInputStream : InputStream {
 		automatic
 	}
 
+	deprecated("Use createGzipInputStream/createDeflateInputStream instead.")
 	this(InputStream src, HeaderFormat type)
+	{
+		this(src, type, true);
+	}
+
+	/// private
+	this(InputStream src, HeaderFormat type, bool dummy)
 	{
 		m_in = src;
 		if (m_in.empty) {
@@ -258,7 +304,7 @@ class ZlibInputStream : InputStream {
 	}
 
 	private void readChunk()
-	{
+	@safe {
 		assert(m_outbuffer.length == 0, "Buffer must be empty to read the next chunk.");
 		assert(m_outbuffer.peekDst().length > 0);
 		enforce (!m_finished, "Reading past end of zlib stream.");
@@ -279,7 +325,7 @@ class ZlibInputStream : InputStream {
 			}
 			auto avins = m_zstream.avail_in;
 			//logInfo("inflate %s -> %s (@%s in @%s)", m_zstream.avail_in, m_zstream.avail_out, m_ninflated, n_read);
-			auto ret = zlibEnforce(inflate(&m_zstream, Z_SYNC_FLUSH));
+			auto ret = zlibEnforce(() @trusted { return inflate(&m_zstream, Z_SYNC_FLUSH); } ());
 			//logInfo("    ... %s -> %s", m_zstream.avail_in, m_zstream.avail_out);
 			assert(m_zstream.avail_out != m_outbuffer.peekDst.length || m_zstream.avail_in != avins);
 			m_ninflated += m_outbuffer.peekDst().length - m_zstream.avail_out;
@@ -289,7 +335,7 @@ class ZlibInputStream : InputStream {
 
 			if (ret == Z_STREAM_END) {
 				m_finished = true;
-				zlibEnforce(inflateEnd(&m_zstream));
+				zlibEnforce(() @trusted { return inflateEnd(&m_zstream); }());
 				assert(m_in.empty, "Input expected to be empty at this point.");
 				return;
 			}
@@ -316,7 +362,7 @@ unittest {
 }
 
 private int zlibEnforce(int result)
-{
+@safe {
 	switch (result) {
 		default:
 			if (result < 0) throw new Exception("unknown zlib error");

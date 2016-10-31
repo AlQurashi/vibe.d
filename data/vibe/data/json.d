@@ -96,6 +96,8 @@ import std.bigint;
 */
 align(8) // ensures that pointers stay on 64-bit boundaries on x64 so that they get scanned by the GC
 struct Json {
+@safe:
+
 	static assert(!hasElaborateDestructor!BigInt && !hasElaborateCopyConstructor!BigInt,
 		"struct Json is missing required ~this and/or this(this) members for BigInt.");
 
@@ -113,7 +115,7 @@ struct Json {
 		static assert(m_data.offsetof == 0, "m_data must be the first struct member.");
 		static assert(BigInt.alignof <= 8, "Json struct alignment of 8 isn't sufficient to store BigInt.");
 
-		ref inout(T) getDataAs(T)() inout {
+		ref inout(T) getDataAs(T)() inout @trusted {
 			static assert(T.sizeof <= m_data.sizeof);
 			return (cast(inout(T)[1])m_data[0 .. T.sizeof])[0];
 		}
@@ -922,7 +924,7 @@ struct Json {
 			case Type.null_: return 0;
 			case Type.bool_: return m_bool < other.m_bool ? -1 : m_bool == other.m_bool ? 0 : 1;
 			case Type.int_: return m_int < other.m_int ? -1 : m_int == other.m_int ? 0 : 1;
-			case Type.bigInt: return m_bigInt < other.m_bigInt ? -1 : m_bigInt == other.m_bigInt ? 0 : 1;
+			case Type.bigInt: return () @trusted { return m_bigInt < other.m_bigInt; } () ? -1 : m_bigInt == other.m_bigInt ? 0 : 1;
 			case Type.float_: return m_float < other.m_float ? -1 : m_float == other.m_float ? 0 : 1;
 			case Type.string: return m_string < other.m_string ? -1 : m_string == other.m_string ? 0 : 1;
 			case Type.array: return m_array < other.m_array ? -1 : m_array == other.m_array ? 0 : 1;
@@ -981,11 +983,12 @@ struct Json {
 	}
 	/// ditto
 	void toString(scope void delegate(const(char)[]) @system sink, FormatSpec!char fmt)
-	{
+	@system {
 		// DMD BUG: this should actually be all @safe, but for some reason
 		// @safe inference for writeJsonString doesn't work.
 		static struct DummyRange {
 			void delegate(const(char)[]) sink;
+			@trusted:
 			void put(const(char)[] str) { sink(str); }
 			void put(char ch) { sink((&ch)[0 .. 1]); }
 		}
@@ -1013,7 +1016,7 @@ struct Json {
 		See_Also: writePrettyJsonString, toString
 	*/
 	string toPrettyString(int level = 0)
-	const {
+	const @trusted {
 		auto ret = appender!string();
 		writePrettyJsonString(ret, this, level);
 		return ret.data;
@@ -1045,7 +1048,7 @@ struct Json {
 	}
 
 	private void initBigInt()
-	{
+	@trusted {
 		BigInt[1] init_;
 		// BigInt is a struct, and it has a special BigInt.init value, which differs from null.
 		// m_data has no special initializer and when it tries to first access to BigInt
@@ -1137,7 +1140,7 @@ Json parseJson(R)(ref R range, int* line = null, string filename = null)
 			if( is_float ) {
 				ret = to!double(num);
 			} else if (is_long_overflow) {
-				ret = BigInt(num);
+				ret = () @trusted { return BigInt(num); } ();
 			} else {
 				ret = to!long(num);
 			}
@@ -2272,10 +2275,10 @@ private void skipWhitespace(R)(ref R s, int* line = null)
 	}
 }
 
-private bool isDigit(dchar ch) { return ch >= '0' && ch <= '9'; }
+private bool isDigit(dchar ch) @safe nothrow pure { return ch >= '0' && ch <= '9'; }
 
 private string underscoreStrip(string field_name)
-{
+@safe nothrow pure {
 	if( field_name.length < 1 || field_name[$-1] != '_' ) return field_name;
 	else return field_name[0 .. $-1];
 }

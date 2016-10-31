@@ -75,7 +75,7 @@ struct AllocAppender(ArrayType : E[], E) {
 
 	*/
 	void reserve(size_t amount)
-	{
+	@trusted {
 		size_t nelems = m_data.length - m_remaining.length;
 		if (!m_data.length) {
 			m_data = cast(ElemType[])m_alloc.allocate(amount*E.sizeof);
@@ -103,45 +103,49 @@ struct AllocAppender(ArrayType : E[], E) {
 	}
 
 	void put(E el)
-	{
+	@safe {
 		if( m_remaining.length == 0 ) grow(1);
 		m_remaining[0] = el;
 		m_remaining = m_remaining[1 .. $];
 	}
 
 	void put(ArrayType arr)
-	{
+	@safe {
 		if (m_remaining.length < arr.length) grow(arr.length);
 		m_remaining[0 .. arr.length] = arr[];
 		m_remaining = m_remaining[arr.length .. $];
 	}
 
 	static if( !hasAliasing!E ){
-		void put(in ElemType[] arr){
+		void put(in ElemType[] arr)
+			@trusted
+		{
 			put(cast(ArrayType)arr);
 		}
 	}
 
 	static if( is(ElemType == char) ){
 		void put(dchar el)
+			@safe
 		{
 			if( el < 128 ) put(cast(char)el);
 			else {
 				char[4] buf;
 				auto len = std.utf.encode(buf, el);
-				put(cast(ArrayType)buf[0 .. len]);
+				put(() @trusted { return cast(ArrayType)buf[0 .. len]; }());
 			}
 		}
 	}
 
 	static if( is(ElemType == wchar) ){
 		void put(dchar el)
+			@safe
 		{
 			if( el < 128 ) put(cast(wchar)el);
 			else {
 				wchar[3] buf;
 				auto len = std.utf.encode(buf, el);
-				put(cast(ArrayType)buf[0 .. len]);
+				put(() @trusted { return cast(ArrayType)buf[0 .. len]; } ());
 			}
 		}
 	}
@@ -420,7 +424,7 @@ struct FixedRingBuffer(T, size_t N = 0, bool INITIALIZE = true) {
 		popFrontN(dst.length);
 	}
 
-	int opApply(scope int delegate(ref T itm) del)
+	int opApply(scope int delegate(ref T itm)  @safe del)
 	{
 		if( m_start+m_fill > m_buffer.length ){
 			foreach(i; m_start .. m_buffer.length)
@@ -438,7 +442,7 @@ struct FixedRingBuffer(T, size_t N = 0, bool INITIALIZE = true) {
 	}
 
 	/// iterate through elements with index
-	int opApply(scope int delegate(size_t i, ref T itm) del)
+	int opApply(scope int delegate(size_t i, ref T itm) @safe del)
 	{
 		if( m_start+m_fill > m_buffer.length ){
 			foreach(i; m_start .. m_buffer.length)

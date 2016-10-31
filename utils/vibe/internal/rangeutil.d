@@ -1,6 +1,8 @@
 module vibe.internal.rangeutil;
 
 struct RangeCounter {
+@safe:
+
 	import std.utf;
 	long* length;
 

@@ -58,6 +58,8 @@ import std.functional;
 		)
 */
 final class URLRouter : HTTPServerRequestHandler {
+	@safe:
+
 	private {
 		MatchTree!Route m_routes;
 		string m_prefix;
@@ -132,83 +134,83 @@ final class URLRouter : HTTPServerRequestHandler {
 	/// ditto
 	URLRouter match(HTTPMethod method, string path, HTTPServerRequestHandler cb) { return match(method, path, &cb.handleRequest); }
 	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestFunction cb) { return match(method, path, toDelegate(cb)); }
+	URLRouter match(HTTPMethod method, string path, HTTPServerRequestFunction cb) { return match(method, path, () @trusted { return toDelegate(cb); } ()); }
 	/// ditto
 	URLRouter match(HTTPMethod method, string path, HTTPServerRequestDelegateS cb) { return match(method, path, cast(HTTPServerRequestDelegate)cb); }
 	/// ditto
 	URLRouter match(HTTPMethod method, string path, HTTPServerRequestHandlerS cb) { return match(method, path, &cb.handleRequest); }
 	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestFunctionS cb) { return match(method, path, toDelegate(cb)); }
+	URLRouter match(HTTPMethod method, string path, HTTPServerRequestFunctionS cb) { return match(method, path, () @trusted { return toDelegate(cb); } ()); }
 
 	/// Adds a new route for GET requests matching the specified pattern.
-	URLRouter get(string url_match, HTTPServerRequestHandler cb) { return get(url_match, &cb.handleRequest); }
+	URLRouter get(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.GET, url_match, cb); }
 	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestFunction cb) { return get(url_match, toDelegate(cb)); }
+	URLRouter get(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.GET, url_match, cb); }
 	/// ditto
 	URLRouter get(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.GET, url_match, cb); }
 	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestHandlerS cb) { return get(url_match, &cb.handleRequest); }
+	URLRouter get(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.GET, url_match, cb); }
 	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestFunctionS cb) { return get(url_match, toDelegate(cb)); }
+	URLRouter get(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.GET, url_match, cb); }
 	/// ditto
 	URLRouter get(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.GET, url_match, cb); }
 
 	/// Adds a new route for POST requests matching the specified pattern.
-	URLRouter post(string url_match, HTTPServerRequestHandler cb) { return post(url_match, &cb.handleRequest); }
+	URLRouter post(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.POST, url_match, cb); }
 	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestFunction cb) { return post(url_match, toDelegate(cb)); }
+	URLRouter post(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.POST, url_match, cb); }
 	/// ditto
 	URLRouter post(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.POST, url_match, cb); }
 	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestHandlerS cb) { return post(url_match, &cb.handleRequest); }
+	URLRouter post(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.POST, url_match, cb); }
 	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestFunctionS cb) { return post(url_match, toDelegate(cb)); }
+	URLRouter post(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.POST, url_match, cb); }
 	/// ditto
 	URLRouter post(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.POST, url_match, cb); }
 
 	/// Adds a new route for PUT requests matching the specified pattern.
-	URLRouter put(string url_match, HTTPServerRequestHandler cb) { return put(url_match, &cb.handleRequest); }
+	URLRouter put(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.PUT, url_match, cb); }
 	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestFunction cb) { return put(url_match, toDelegate(cb)); }
+	URLRouter put(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.PUT, url_match, cb); }
 	/// ditto
 	URLRouter put(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.PUT, url_match, cb); }
 	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestHandlerS cb) { return put(url_match, &cb.handleRequest); }
+	URLRouter put(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.PUT, url_match, cb); }
 	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestFunctionS cb) { return put(url_match, toDelegate(cb)); }
+	URLRouter put(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.PUT, url_match, cb); }
 	/// ditto
 	URLRouter put(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.PUT, url_match, cb); }
 
 	/// Adds a new route for DELETE requests matching the specified pattern.
-	URLRouter delete_(string url_match, HTTPServerRequestHandler cb) { return delete_(url_match, &cb.handleRequest); }
+	URLRouter delete_(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.DELETE, url_match, cb); }
 	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestFunction cb) { return delete_(url_match, toDelegate(cb)); }
+	URLRouter delete_(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.DELETE, url_match, cb); }
 	/// ditto
 	URLRouter delete_(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.DELETE, url_match, cb); }
 	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestHandlerS cb) { return delete_(url_match, &cb.handleRequest); }
+	URLRouter delete_(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.DELETE, url_match, cb); }
 	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestFunctionS cb) { return delete_(url_match, toDelegate(cb)); }
+	URLRouter delete_(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.DELETE, url_match, cb); }
 	/// ditto
 	URLRouter delete_(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.DELETE, url_match, cb); }
 
 	/// Adds a new route for PATCH requests matching the specified pattern.
-	URLRouter patch(string url_match, HTTPServerRequestHandler cb) { return patch(url_match, &cb.handleRequest); }
+	URLRouter patch(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.PATCH, url_match, cb); }
 	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestFunction cb) { return patch(url_match, toDelegate(cb)); }
+	URLRouter patch(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.PATCH, url_match, cb); }
 	/// ditto
 	URLRouter patch(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.PATCH, url_match, cb); }
 	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestHandlerS cb) { return patch(url_match, &cb.handleRequest); }
+	URLRouter patch(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.PATCH, url_match, cb); }
 	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestFunctionS cb) { return patch(url_match, toDelegate(cb)); }
+	URLRouter patch(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.PATCH, url_match, cb); }
 	/// ditto
 	URLRouter patch(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.PATCH, url_match, cb); }
 
 	/// Adds a new route for requests matching the specified pattern, regardless of their HTTP verb.
 	URLRouter any(string url_match, HTTPServerRequestHandler cb) { return any(url_match, &cb.handleRequest); }
 	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestFunction cb) { return any(url_match, toDelegate(cb)); }
+	URLRouter any(string url_match, HTTPServerRequestFunction cb) { return any(url_match, () @trusted { return toDelegate(cb); } ()); }
 	/// ditto
 	URLRouter any(string url_match, HTTPServerRequestDelegate cb)
 	{
@@ -223,7 +225,7 @@ final class URLRouter : HTTPServerRequestHandler {
 	/// ditto
 	URLRouter any(string url_match, HTTPServerRequestHandlerS cb) { return any(url_match, &cb.handleRequest); }
 	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestFunctionS cb) { return any(url_match, toDelegate(cb)); }
+	URLRouter any(string url_match, HTTPServerRequestFunctionS cb) { return any(url_match, () @trusted { return toDelegate(cb); } ()); }
 	/// ditto
 	URLRouter any(string url_match, HTTPServerRequestDelegateS cb) { return any(url_match, cast(HTTPServerRequestDelegate)cb); }
 
@@ -246,7 +248,7 @@ final class URLRouter : HTTPServerRequestHandler {
 		auto method = req.method;
 
 		string calcBasePath()
-		{
+		@safe {
 			import vibe.inet.path;
 			auto p = Path(prefix.length ? prefix : "/");
 			p.endsWithSlash = true;
@@ -258,8 +260,8 @@ final class URLRouter : HTTPServerRequestHandler {
 		path = path[m_prefix.length .. $];
 
 		while (true) {
-			bool done = m_routes.match(path, (ridx, scope values) {
-				auto r = &m_routes.getTerminalData(ridx);
+			bool done = m_routes.match(path, (ridx, scope values) @safe {
+				auto r = () @trusted { return &m_routes.getTerminalData(ridx); } ();
 				if (r.method != method) return false;
 
 				logDebugV("route match: %s -> %s %s %s", req.path, r.method, r.pattern, values);
@@ -448,6 +450,8 @@ unittest {
 	See `URLRouter.route` for a usage example.
 */
 struct URLRoute {
+@safe:
+
 	URLRouter router;
 	string path;
 
@@ -470,14 +474,14 @@ private struct Route {
 }
 
 private string skipPathNode(string str, ref size_t idx)
-{
+@safe {
 	size_t start = idx;
 	while( idx < str.length && str[idx] != '/' ) idx++;
 	return str[start .. idx];
 }
 
 private string skipPathNode(ref string str)
-{
+@safe {
 	size_t idx = 0;
 	auto ret = skipPathNode(str, idx);
 	str = str[idx .. $];
@@ -485,6 +489,8 @@ private string skipPathNode(ref string str)
 }
 
 private struct MatchTree(T) {
+@safe:
+
 	import std.algorithm : countUntil;
 	import std.array : array;
 
@@ -520,7 +526,7 @@ private struct MatchTree(T) {
 		m_upToDate = false;
 	}
 
-	bool match(string text, scope bool delegate(size_t terminal, scope string[] vars) del)
+	bool match(string text, scope bool delegate(size_t terminal, scope string[] vars) @safe del)
 	{
 		// lazily update the match graph
 		if (!m_upToDate) rebuildGraph();
@@ -576,9 +582,9 @@ private struct MatchTree(T) {
 		}
 	}
 
-	private bool doMatch(string text, scope bool delegate(size_t terminal, scope string[] vars) del)
+	private bool doMatch(string text, scope bool delegate(size_t terminal, scope string[] vars) @safe del)
 	const {
-		string[maxRouteParameters] vars_buf = void;
+		string[maxRouteParameters] vars_buf;// = void;
 
 		import std.algorithm : canFind;
 
@@ -787,6 +793,8 @@ unittest {
 
 
 private struct MatchGraphBuilder {
+@safe:
+
 	import std.array : array;
 	import std.algorithm : filter;
 	import std.string : format;
@@ -881,7 +889,7 @@ private struct MatchGraphBuilder {
 				if (chnodes.length <= 1) continue;
 
 				// generate combined state for ambiguous edges
-				if (auto pn = chnodes in combined_nodes) { m_nodes[n].edges[ch] = singleNodeArray(*pn); continue; }
+				if (auto pn = () @trusted { return chnodes in combined_nodes; } ()) { m_nodes[n].edges[ch] = singleNodeArray(*pn); continue; }
 
 				// for new combinations, create a new node
 				size_t ncomb = addNode();
@@ -985,7 +993,7 @@ private struct MatchGraphBuilder {
 	}
 
 	private size_t[] singleNodeArray(size_t node)
-	{
+	@trusted {
 		return (&m_nodes[node].idx)[0 .. 1];
 	}
 

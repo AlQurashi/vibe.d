@@ -31,6 +31,8 @@ import std.typecons : Tuple, tuple;
   to specify objects.
  */
 struct MongoCollection {
+@safe:
+
 	private {
 		MongoClient m_client;
 		MongoDatabase m_db;
@@ -100,9 +102,9 @@ struct MongoCollection {
 		assert(m_client !is null, "Inserting into uninitialized MongoCollection.");
 		auto conn = m_client.lockConnection();
 		Bson[] docs;
-		Bson bdocs = serializeToBson(document_or_documents);
+		Bson bdocs = () @trusted { return serializeToBson(document_or_documents); } ();
 		if( bdocs.type == Bson.Type.Array ) docs = cast(Bson[])bdocs;
-		else docs = (&bdocs)[0 .. 1];
+		else docs = () @trusted { return (&bdocs)[0 .. 1]; } ();
 		conn.insert(m_fullPath, flags, docs);
 	}
 

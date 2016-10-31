@@ -33,7 +33,8 @@ import std.range : isOutputRange;
 		An exception if either the stream end was hit without hitting a newline first, or
 		if more than max_bytes have been read from the stream.
 */
-ubyte[] readLine()(InputStream stream, size_t max_bytes = size_t.max, string linesep = "\r\n", IAllocator alloc = processAllocator()) /*@ufcs*/
+ubyte[] readLine(InputStream)(InputStream stream, size_t max_bytes = size_t.max, string linesep = "\r\n", IAllocator alloc = processAllocator()) /*@ufcs*/
+	if (isInputStream!InputStream)
 {
 	auto output = AllocAppender!(ubyte[])(alloc);
 	output.reserve(max_bytes < 64 ? max_bytes : 64);
@@ -41,14 +42,15 @@ ubyte[] readLine()(InputStream stream, size_t max_bytes = size_t.max, string lin
 	return output.data();
 }
 /// ditto
-void readLine()(InputStream stream, OutputStream dst, size_t max_bytes = size_t.max, string linesep = "\r\n")
+void readLine(InputStream, OutputStream)(InputStream stream, OutputStream dst, size_t max_bytes = size_t.max, string linesep = "\r\n")
+	if (isInputStream!InputStream && isOutputStream!OutputStream)
 {
 	import vibe.stream.wrapper;
 	auto dstrng = StreamOutputRange(dst);
 	readLine(stream, dstrng, max_bytes, linesep);
 }
 /// ditto
-void readLine(R)(InputStream stream, ref R dst, size_t max_bytes = size_t.max, string linesep = "\r\n")
+void readLine(R, InputStream)(InputStream stream, ref R dst, size_t max_bytes = size_t.max, string linesep = "\r\n")
 	if (isOutputRange!(R, ubyte))
 {
 	readUntil(stream, dst, cast(const(ubyte)[])linesep, max_bytes);
@@ -114,7 +116,8 @@ unittest {
 		O(n+m) in typical cases, with n being the length of the scanned input
 		string and m the length of the marker.
 */
-ubyte[] readUntil()(InputStream stream, in ubyte[] end_marker, size_t max_bytes = size_t.max, IAllocator alloc = processAllocator()) /*@ufcs*/
+ubyte[] readUntil(InputStream)(InputStream stream, in ubyte[] end_marker, size_t max_bytes = size_t.max, IAllocator alloc = processAllocator()) /*@ufcs*/
+@safe	if (isInputStream!InputStream)
 {
 	auto output = AllocAppender!(ubyte[])(alloc);
 	output.reserve(max_bytes < 64 ? max_bytes : 64);
@@ -122,15 +125,16 @@ ubyte[] readUntil()(InputStream stream, in ubyte[] end_marker, size_t max_bytes 
 	return output.data();
 }
 /// ditto
-void readUntil()(InputStream stream, OutputStream dst, in ubyte[] end_marker, ulong max_bytes = ulong.max) /*@ufcs*/
+void readUntil(InputStream, OutputStream)(InputStream stream, OutputStream dst, in ubyte[] end_marker, ulong max_bytes = ulong.max) /*@ufcs*/
+	if (isInputStream!InputStream && isOutputStream!OutputStream)
 {
 	import vibe.stream.wrapper;
-	auto dstrng = StreamOutputRange(dst);
+	auto dstrng = streamOutputRange(dst);
 	readUntil(stream, dstrng, end_marker, max_bytes);
 }
 /// ditto
-void readUntil(R)(InputStream stream, ref R dst, in ubyte[] end_marker, ulong max_bytes = ulong.max) /*@ufcs*/
-	if (isOutputRange!(R, ubyte))
+void readUntil(R, InputStream)(InputStream stream, ref R dst, in ubyte[] end_marker, ulong max_bytes = ulong.max) /*@ufcs*/
+@safe	if (isOutputRange!(R, ubyte) && isInputStream!InputStream)
 {
 	assert(max_bytes > 0 && end_marker.length > 0);
 
@@ -214,7 +218,8 @@ unittest {
 	Throws:
 		An exception is thrown if the stream contains more than max_bytes data.
 */
-ubyte[] readAll(InputStream stream, size_t max_bytes = size_t.max, size_t reserve_bytes = 0) /*@ufcs*/
+ubyte[] readAll(InputStream)(InputStream stream, size_t max_bytes = size_t.max, size_t reserve_bytes = 0) /*@ufcs*/
+	if (isInputStream!InputStream)
 {
 	import vibe.internal.freelistref;
 
@@ -254,15 +259,17 @@ ubyte[] readAll(InputStream stream, size_t max_bytes = size_t.max, size_t reserv
 		If the sanitize parameter is fals and the stream contains invalid UTF-8 code sequences,
 		a UTFException is thrown.
 */
-string readAllUTF8(InputStream stream, bool sanitize = false, size_t max_bytes = size_t.max)
+string readAllUTF8(InputStream)(InputStream stream, bool sanitize = false, size_t max_bytes = size_t.max)
+@safe 	if (isInputStream!InputStream)
 {
 	import std.utf;
 	import vibe.utils.string;
 	auto data = readAll(stream, max_bytes);
 	if( sanitize ) return stripUTF8Bom(sanitizeUTF8(data));
 	else {
-		validate(cast(string)data);
-		return stripUTF8Bom(cast(string)data);
+		auto ret = () @trusted { return cast(string)data; } ();
+		validate(ret);
+		return stripUTF8Bom(ret);
 	}
 }
 
@@ -279,7 +286,8 @@ string readAllUTF8(InputStream stream, bool sanitize = false, size_t max_bytes =
 
 	See_also: OutputStream.write
 */
-void pipeRealtime(OutputStream destination, ConnectionStream source, ulong nbytes = 0, Duration max_latency = 0.seconds)
+void pipeRealtime(OutputStream, ConnectionStream)(OutputStream destination, ConnectionStream source, ulong nbytes = 0, Duration max_latency = 0.seconds)
+	if (isOutputStream!OutputStream && isConnectionStream!ConnectionStream)
 {
 	import vibe.internal.freelistref;
 
@@ -327,7 +335,8 @@ void pipeRealtime(OutputStream destination, ConnectionStream source, ulong nbyte
 	Returns: True $(I iff) the consumed bytes equal the passed array.
 	Throws: Throws an exception if reading from the stream fails.
 */
-bool skipBytes(InputStream stream, const(ubyte)[] bytes)
+bool skipBytes(InputStream)(InputStream stream, const(ubyte)[] bytes)
+	if (isInputStream!InputStream)
 {
 	bool matched = true;
 	ubyte[128] buf = void;
@@ -342,7 +351,8 @@ bool skipBytes(InputStream stream, const(ubyte)[] bytes)
 
 private struct Buffer { ubyte[64*1024-4] bytes = void; } // 64k - 4 bytes for reference count
 
-private void readUntilSmall(R)(InputStream stream, ref R dst, in ubyte[] end_marker, ulong max_bytes = ulong.max)
+private void readUntilSmall(R, InputStream)(InputStream stream, ref R dst, in ubyte[] end_marker, ulong max_bytes = ulong.max)
+@safe	if (isInputStream!InputStream)
 {
 	assert(end_marker.length >= 1 && end_marker.length <= 2);
 
@@ -394,8 +404,8 @@ private void readUntilSmall(R)(InputStream stream, ref R dst, in ubyte[] end_mar
 }
 
 
-private void readUntilGeneric(R)(InputStream stream, ref R dst, in ubyte[] end_marker, ulong max_bytes = ulong.max) /*@ufcs*/
-	if (isOutputRange!(R, ubyte))
+private @safe void readUntilGeneric(R, InputStream)(InputStream stream, ref R dst, in ubyte[] end_marker, ulong max_bytes = ulong.max) /*@ufcs*/
+	if (isOutputRange!(R, ubyte) && isInputStream!InputStream)
 {
 	// allocate internal jump table to optimize the number of comparisons
 	size_t[8] nmatchoffsetbuffer = void;
@@ -416,7 +426,9 @@ private void readUntilGeneric(R)(InputStream stream, ref R dst, in ubyte[] end_m
 	}
 
 	size_t nmatched = 0;
-	auto bufferobj = FreeListRef!(Buffer, false)();
+	Buffer* bufferobj;
+	bufferobj = new Buffer;
+	scope (exit) () @trusted { delete bufferobj; } ();
 	auto buf = bufferobj.bytes[];
 
 	ulong bytes_read = 0;
@@ -469,12 +481,12 @@ private void readUntilGeneric(R)(InputStream stream, ref R dst, in ubyte[] end_m
 
 		// write out any false match part of previous blocks
 		if( nmatched_start > 0 ){
-			if( nmatched <= i ) dst.put(end_marker[0 .. nmatched_start]);
-			else dst.put(end_marker[0 .. nmatched_start-nmatched+i]);
+			if( nmatched <= i ) () @trusted { dst.put(end_marker[0 .. nmatched_start]); } ();
+			else () @trusted { dst.put(end_marker[0 .. nmatched_start-nmatched+i]); } ();
 		}
 
 		// write out any unmatched part of the current block
-		if( nmatched < i ) dst.put(str[0 .. i-nmatched]);
+		if( nmatched < i ) () @trusted { dst.put(str[0 .. i-nmatched]); } ();
 
 		// got a full, match => out
 		if (nmatched >= end_marker.length) {
@@ -493,7 +505,8 @@ private void readUntilGeneric(R)(InputStream stream, ref R dst, in ubyte[] end_m
 
 static if (!is(typeof(InputStream.init.skip(0))))
 {
-	private void skip(InputStream str, ulong count)
+	private void skip(InputStream)(InputStream str, ulong count)
+		if (isInputStream!InputStream)
 	{
 		ubyte[156] buf = void;
 		while (count > 0) {
@@ -504,7 +517,9 @@ static if (!is(typeof(InputStream.init.skip(0))))
 	}
 }
 
-private class NoPeekProxy : ProxyStream {
+private class NoPeekProxy(InputStream) : ProxyStream
+	if (isInputStream!InputStream)
+{
 	this(InputStream stream)
 	{
 		super(stream, null);

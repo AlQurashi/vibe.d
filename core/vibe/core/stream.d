@@ -228,3 +228,9 @@ final class NullOutputStream : OutputStream {
 	void flush() {}
 	void finalize() {}
 }
+
+enum isInputStream(T) = is(T : InputStream);
+enum isOutputStream(T) = is(T : OutputStream);
+enum isStream(T) = is(T : Stream);
+enum isConnectionStream(T) = is(T : ConnectionStream);
+enum isRandomAccessStream(T) = is(T : RandomAccessStream);

@@ -19,7 +19,6 @@ import std.file;
 import std.path;
 import std.string;
 
-
 version(Posix){
 	private extern(C) int mkstemps(char* templ, int suffixlen);
 }

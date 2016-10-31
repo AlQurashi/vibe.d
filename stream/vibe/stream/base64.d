@@ -1,7 +1,7 @@
 /**
 	Base64 encoding routines
 
-	Copyright: © 2012-2013 RejectedSoftware e.K.
+	Copyright: © 2012-2016 RejectedSoftware e.K.
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Jan Krüger, Sönke Ludwig
 */
@@ -10,6 +10,36 @@ module vibe.stream.base64;
 import vibe.core.stream;
 
 import std.base64;
+
+/** Creates a Base64 encoding stream.max_bytes_per_line
+
+	By default, the stream generates a MIME compatible Base64 encoding.
+
+	Params:
+		output = The output sink to which the encoded result is written.
+		max_bytes_per_line = The maximum number of input bytes after which a
+			line break is inserted into the output. Defaults to 57,
+			according to the MIME standard.
+*/
+Base64OutputStream createBase64OutputStream(char C62 = '+', char C63 = '/', OutputStream)(OutputStream output, ulong max_bytes_per_line = 57)
+	if (isOutputStream!OutputStream)
+{
+	return new Base64OutputStreamImpl!(C62, C63, OutputStream)(output, max_bytes_per_line);
+}
+
+/** Creates a URL safe Base64 encoding stream (using '-' and '_' for non-alphabetic values).
+
+	Params:
+		output = The output sink to which the encoded result is written.
+		max_bytes_per_line = The maximum number of input bytes after which a
+			line break is inserted into the output. Defaults to 57,
+			according to the MIME standard.
+*/
+Base64URLOutputStream createBase64URLOutputStream(OutputStream)(OutputStream output, ulong max_bytes_per_line = 57)
+	if (isOutputStream!OutputStream)
+{
+	return new Base64OutputStreamImpl!('-', '_', OutputStream)(output, max_bytes_per_line, true);
+}
 
 
 /**
@@ -38,16 +68,14 @@ final class Base64OutputStreamImpl(char C62, char C63, char CPAD = '=') : Output
 
 	private alias B64 = Base64Impl!(C62, C63, CPAD);
 
-	/**
-		Initializes the Base64 output stream.
-
-		Params:
-			output = The output sink to which the encoded result is written.
-			max_bytes_per_line = The maximum number of input bytes after which a
-				line break is inserted into the output. Defaults to 57,
-				according to the MIME standard.
-	*/
+	deprecated("Use `createBase64OutputStream` or `createBase64URLOutputStream` instead.")
 	this(OutputStream output, ulong max_bytes_per_line = 57)
+	{
+		this(output, max_bytes_per_line, true);
+	}
+
+	/// private
+	this(OutputStream output, ulong max_bytes_per_line, bool dummy)
 	{
 		m_out = output;
 		m_maxBytesPerLine = max_bytes_per_line;
@@ -55,7 +83,7 @@ final class Base64OutputStreamImpl(char C62, char C63, char CPAD = '=') : Output
 
 
 	void write(in ubyte[] bytes_)
-	{
+	@trusted { // StreamOutputRange is not @safe
 		import vibe.stream.wrapper;
 
 		const(ubyte)[] bytes = bytes_;

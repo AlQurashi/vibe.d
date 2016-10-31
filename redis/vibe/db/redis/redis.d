@@ -25,6 +25,8 @@ import std.traits;
 import std.typecons : Nullable;
 import std.utf;
 
+@safe:
+
 
 /**
 	Returns a RedisClient that can be used to communicate to the specified database server.
@@ -626,13 +628,15 @@ struct RedisDatabase {
 	A redis subscription listener
 */
 import std.datetime;
-import vibe.core.concurrency;
 import std.variant;
 import std.typecons : Tuple, tuple;
 import std.container : Array;
 import std.algorithm : canFind;
 import std.range : takeOne;
 import std.array : array;
+
+import vibe.core.concurrency;
+import vibe.core.sync;
 
 alias RedisSubscriber = FreeListRef!RedisSubscriberImpl;
 
@@ -665,7 +669,7 @@ final class RedisSubscriberImpl {
 
 	/// Get a list of channels with active subscriptions
 	@property string[] subscriptions() const {
-		return m_subscriptions.keys;
+		return () @trusted { return m_subscriptions.keys; } ();
 	}
 
 	bool hasSubscription(string channel) const {
@@ -690,7 +694,7 @@ final class RedisSubscriberImpl {
 		logTrace("bstop");
 		if (!m_listening) return;
 
-		void impl() {
+		void impl() @safe {
 			m_mutex.performLocked!({
 				m_waiter = Task.getThis();
 				scope(exit) m_waiter = Task();
@@ -698,7 +702,7 @@ final class RedisSubscriberImpl {
 
 				bool stopped;
 				do {
-					if (!receiveTimeoutCompat(3.seconds, (Action act) { if (act == Action.STOP) stopped = true;  }))
+					if (!() @trusted { return receiveTimeout(3.seconds, (Action act) { if (act == Action.STOP) stopped = true;  }); } ())
 						break;
 				} while (!stopped);
 
@@ -715,13 +719,13 @@ final class RedisSubscriberImpl {
 			return;
 
 		void impl() {
-			m_mutex.performLocked!({
+			m_mutex.performLocked!(() {
 				m_stop = true;
-				m_listener.sendCompat(Action.STOP);
+				() @trusted { m_listener.send(Action.STOP); } ();
 				// send a message to wake up the listenerHelper from the reply
 				if (m_subscriptions.length > 0) {
-					m_connMutex.performLocked!({
-						_request_void(m_lockedConnection, "UNSUBSCRIBE", cast(string[]) m_subscriptions.keys.takeOne.array );
+					m_connMutex.performLocked!(() {
+						_request_void(m_lockedConnection, "UNSUBSCRIBE", () @trusted { return cast(string[]) m_subscriptions.keys.takeOne.array; } ());
 					});
 					sleep(30.msecs);
 				}
@@ -766,7 +770,7 @@ final class RedisSubscriberImpl {
 		if (!hasNewSubscriptionIn(args))
 			return;
 
-		void impl() {
+		void impl() @safe {
 
 			scope(failure) { logTrace("Failure"); bstop(); }
 			try {
@@ -777,18 +781,21 @@ final class RedisSubscriberImpl {
 					m_connMutex.performLocked!({
 						_request_void(m_lockedConnection, "SUBSCRIBE", args);
 					});
-					while(!m_subscriptions.keys.canFind(args)) {
-						if (!receiveTimeoutCompat(2.seconds, (Action act) { enforce(act == Action.SUBSCRIBE);  }))
+					while(!() @trusted { return m_subscriptions.byKey.canFind(args); } ()) {
+						if (!() @trusted { return receiveTimeout(2.seconds, (Action act) { enforce(act == Action.SUBSCRIBE);  }); } ())
 							break;
 
 						subscribed = true;
 					}
-					logTrace("Can find keys? : " ~ m_subscriptions.keys.canFind(args).to!string);
-					logTrace("Subscriptions: " ~ m_subscriptions.keys.to!string);
+					debug {
+						auto keys = () @trusted { return m_subscriptions.keys; } ();
+						logTrace("Can find keys?: %s",  keys.canFind(args));
+						logTrace("Subscriptions: %s", keys);
+					}
 					enforce(subscribed, "Could not complete subscription(s).");
 				});
-			} catch (Throwable e) {
-				logTrace(e.toString());
+			} catch (Exception e) {
+				logDebug("Redis subscribe() failed: ", e.msg);
 			}
 		}
 		inTask(&impl);
@@ -801,7 +808,7 @@ final class RedisSubscriberImpl {
 	{
 		logTrace("unsubscribe");
 
-		void impl() {
+		void impl() @safe {
 
 			if (!anySubscribed(args))
 				return;
@@ -816,15 +823,18 @@ final class RedisSubscriberImpl {
 				m_connMutex.performLocked!({
 					_request_void(m_lockedConnection, "UNSUBSCRIBE", args);
 				});
-				while(m_subscriptions.keys.canFind(args)) {
-					if (!receiveTimeoutCompat(2.seconds, (Action act) { enforce(act == Action.UNSUBSCRIBE);  })) {
+				while(() @trusted { return m_subscriptions.byKey.canFind(args); } ()) {
+					if (!() @trusted { return receiveTimeout(2.seconds, (Action act) { enforce(act == Action.UNSUBSCRIBE);  }); } ()) {
 						unsubscribed = false;
 						break;
 					}
 					unsubscribed = true;
 				}
-				logTrace("Can find keys? : " ~ m_subscriptions.keys.canFind(args).to!string);
-				logTrace("Subscriptions: " ~ m_subscriptions.keys.to!string);
+				debug {
+					auto keys = () @trusted { return m_subscriptions.keys; } ();
+					logTrace("Can find keys?: %s",  keys.canFind(args));
+					logTrace("Subscriptions: %s", keys);
+				}
 				enforce(unsubscribed, "Could not complete unsubscription(s).");
 			});
 		}
@@ -837,7 +847,7 @@ final class RedisSubscriberImpl {
 	void psubscribe(scope string[] args...)
 	{
 		logTrace("psubscribe");
-		void impl() {
+		void impl() @safe {
 			scope(failure) bstop();
 			assert(m_listening);
 			m_mutex.performLocked!({
@@ -848,12 +858,12 @@ final class RedisSubscriberImpl {
 					_request_void(m_lockedConnection, "PSUBSCRIBE", args);
 				});
 
-				if (!receiveTimeoutCompat(2.seconds, (Action act) { enforce(act == Action.SUBSCRIBE);  }))
+				if (!() @trusted { return receiveTimeout(2.seconds, (Action act) { enforce(act == Action.SUBSCRIBE);  }); } ())
 					subscribed = false;
 				else
 					subscribed = true;
 
-				logTrace("Subscriptions: " ~ m_subscriptions.keys.to!string);
+				debug logTrace("Subscriptions: %s", () @trusted { return m_subscriptions.keys; } ());
 				enforce(subscribed, "Could not complete subscription(s).");
 			});
 		}
@@ -866,7 +876,7 @@ final class RedisSubscriberImpl {
 	void punsubscribe(scope string[] args...)
 	{
 		logTrace("punsubscribe");
-		void impl() {
+		void impl() @safe {
 			scope(failure) bstop();
 			assert(m_listening);
 			m_mutex.performLocked!({
@@ -876,24 +886,26 @@ final class RedisSubscriberImpl {
 				m_connMutex.performLocked!({
 					_request_void(m_lockedConnection, "PUNSUBSCRIBE", args);
 				});
-				if (!receiveTimeoutCompat(2.seconds, (Action act) { enforce(act == Action.UNSUBSCRIBE);  }))
+				if (!() @trusted { return receiveTimeout(2.seconds, (Action act) { enforce(act == Action.UNSUBSCRIBE);  }); } ())
 					unsubscribed = false;
 				else
 					unsubscribed = true;
 
-				logTrace("Can find keys? : " ~ m_subscriptions.keys.canFind(args).to!string);
-				logTrace("Subscriptions: " ~ m_subscriptions.keys.to!string);
+				debug {
+					auto keys = () @trusted { return m_subscriptions.keys; } ();
+					logTrace("Can find keys?: %s",  keys.canFind(args));
+					logTrace("Subscriptions: %s", keys);
+				}
 				enforce(unsubscribed, "Could not complete unsubscription(s).");
 			});
 		}
 		inTask(&impl);
 	}
 
-	private void inTask(void delegate() impl) {
+	private void inTask(scope void delegate() @safe impl) {
 		logTrace("inTask");
 		if (Task.getThis() == Task())
 		{
-			import vibe.core.driver;
 			Throwable ex;
 			bool done;
 			Task task = runTask({
@@ -904,9 +916,7 @@ final class RedisSubscriberImpl {
 				}
 				done = true;
 			});
-			while(!done && !ex) {
-				processEvents();
-			}
+			task.join();
 			logDebug("done");
 			if (ex)
 				throw ex;
@@ -940,28 +950,28 @@ final class RedisSubscriberImpl {
 	{
 		init();
 
-		void onSubscribe(string channel) {
+		void onSubscribe(string channel) @safe {
 			logTrace("Callback subscribe(%s)", channel);
 			m_subscriptions[channel] = true;
 			if (m_waiter != Task())
-				m_waiter.sendCompat(Action.SUBSCRIBE);
+				() @trusted { m_waiter.send(Action.SUBSCRIBE); } ();
 		}
 
-		void onUnsubscribe(string channel) {
+		void onUnsubscribe(string channel) @safe {
 			logTrace("Callback unsubscribe(%s)", channel);
 			m_subscriptions.remove(channel);
 			if (m_waiter != Task())
-				m_waiter.sendCompat(Action.UNSUBSCRIBE);
+				() @trusted { m_waiter.send(Action.UNSUBSCRIBE); } ();
 		}
 
-		void teardown() { // teardown
+		void teardown() @safe { // teardown
 			logTrace("Redis listener exiting");
 			// More publish commands may be sent to this connection after recycling it, so we
 			// actively destroy it
 			Action act;
 			// wait for the listener helper to send its stop message
 			while (act != Action.STOP)
-				act = receiveOnlyCompat!Action();
+				act = () @trusted { return receiveOnly!Action(); } ();
 			m_lockedConnection.conn.close();
 			m_lockedConnection.destroy();
 			m_listening = false;
@@ -1072,22 +1082,22 @@ final class RedisSubscriberImpl {
 					// Data has arrived, this task is in charge of notifying the main handler loop
 					logTrace("Notify data arrival");
 
-					Task.getThis().messageQueue.clear();
-					m_listener.sendCompat(Action.DATA);
-					if (!receiveTimeoutCompat(5.seconds, (Action act) { assert(act == Action.DATA); }))
+					() @trusted { receiveTimeout(0.seconds, (Variant v) {}); } (); // clear message queue
+					m_listener.send(Action.DATA);
+					if (!() @trusted { return receiveTimeout(5.seconds, (Action act) { assert(act == Action.DATA); }); } ())
 						assert(false);
 
 				} else if (m_stop || !m_lockedConnection.conn) break;
 				logTrace("No data arrival in 100 ms...");
 			}
 			logTrace("Listener Helper exit.");
-			m_listener.sendCompat(Action.STOP);
+			m_listener.send(Action.STOP);
 		} );
 
 		m_listening = true;
 		logTrace("Redis listener now listening");
 		if (m_waiter != Task())
-			m_waiter.sendCompat(Action.STARTED);
+			() @trusted { m_waiter.send(Action.STARTED); } ();
 
 		if (timeout == 0.seconds)
 			timeout = 365.days; // make sure 0.seconds is considered as big.
@@ -1101,7 +1111,7 @@ final class RedisSubscriberImpl {
 			teardown();
 
 			if (m_waiter != Task())
-				m_waiter.sendCompat(Action.STOP);
+				() @trusted { m_waiter.send(Action.STOP); } ();
 
 			m_listenerHelper = Task();
 			m_listener = Task();
@@ -1118,10 +1128,10 @@ final class RedisSubscriberImpl {
 				m_connMutex.performLocked!({
 					pubsub_handler(); // handles one command at a time
 				});
-				m_listenerHelper.sendCompat(Action.DATA);
+				m_listenerHelper.send(Action.DATA);
 			};
 
-			if (!receiveTimeoutCompat(timeout, handler) || m_stop) {
+			if (!() @trusted { return receiveTimeout(timeout, handler); } () || m_stop) {
 				logTrace("Redis Listener stopped");
 				break;
 			}
@@ -1137,7 +1147,7 @@ final class RedisSubscriberImpl {
 	Task listen(void delegate(string, string) callback, Duration timeout = 0.seconds)
 	{
 		logTrace("Listen");
-		void impl() {
+		void impl() @safe {
 			logTrace("Listen");
 			m_waiter = Task.getThis();
 			scope(exit) m_waiter = Task();
@@ -1147,7 +1157,7 @@ final class RedisSubscriberImpl {
 				catch(Throwable e) {
 					ex = e;
 					if (m_waiter != Task() && !m_listening) {
-						m_waiter.sendCompat(Action.STARTED);
+						() @trusted { m_waiter.send(Action.STARTED); } ();
 						return;
 					}
 					callback("Error", e.toString());
@@ -1155,7 +1165,7 @@ final class RedisSubscriberImpl {
 			});
 			m_mutex.performLocked!({
 				import std.datetime : usecs;
-				receiveTimeoutCompat(2.seconds, (Action act) { assert( act == Action.STARTED); });
+				() @trusted { receiveTimeout(2.seconds, (Action act) { assert( act == Action.STARTED); }); } ();
 				if (ex) throw ex;
 				enforce(m_listening, "Failed to start listening, timeout of 2 seconds expired");
 			});
@@ -1284,7 +1294,7 @@ struct RedisReply(T = ubyte[]) {
 		assert(!ctx.hasData && ctx.initialized);
 
 		if (ctx.multi)
-			readBulk(cast(string)m_conn.conn.readLine());
+			readBulk(() @trusted { return cast(string)m_conn.conn.readLine(); } ());
 	}
 
 	private void clearData()
@@ -1307,25 +1317,25 @@ struct RedisReply(T = ubyte[]) {
 		assert(!ctx.initialized);
 		ctx.initialized = true;
 
-		auto ln = cast(string)m_conn.conn.readLine();
+		ubyte[] ln = m_conn.conn.readLine();
 
 		switch (ln[0]) {
 			default:
 				m_conn.conn.close();
-				throw new Exception(format("Unknown reply type: %s", ln[0]));
-			case '+': ctx.data = cast(ubyte[])ln[1 .. $]; ctx.hasData = true; break;
-			case '-': throw new Exception(ln[1 .. $]);
-			case ':': ctx.data = cast(ubyte[])ln[1 .. $]; ctx.hasData = true; break;
+				throw new Exception(format("Unknown reply type: %s", cast(char)ln[0]));
+			case '+': ctx.data = ln[1 .. $]; ctx.hasData = true; break;
+			case '-': throw new Exception(() @trusted { return cast(string)ln[1 .. $]; } ());
+			case ':': ctx.data = ln[1 .. $]; ctx.hasData = true; break;
 			case '$':
-				readBulk(ln);
+				readBulk(() @trusted { return cast(string)ln; } ());
 				break;
 			case '*':
-				if (ln.startsWith("*-1")) {
+				if (ln.startsWith(cast(const(ubyte)[])"*-1")) {
 					ctx.length = 0; // TODO: make this NIL reply distinguishable from a 0-length array
 				} else {
 					ctx.multi = true;
 					scope (failure) m_conn.conn.close();
-					ctx.length = to!long(ln[ 1 .. $ ]);
+					ctx.length = to!long(() @trusted { return cast(string)ln[1 .. $]; } ());
 				}
 				break;
 		}
@@ -1478,7 +1488,7 @@ private final class RedisConnection {
 		else {
 			import vibe.internal.rangeutil;
 			long length;
-			auto rangeCnt = RangeCounter(&length);
+			auto rangeCnt = RangeCounter(() @trusted { return &length; } ());
 			rangeCnt.formattedWrite(typeFormatString!ARG, arg);
 			return length;
 		}
@@ -1498,9 +1508,9 @@ private void _request_void(ARGS...)(RedisConnection conn, string command, scope 
 	}
 
 	auto nargs = conn.countArgs(args);
-	auto rng = StreamOutputRange(conn.conn);
-	formattedWrite(&rng, "*%d\r\n$%d\r\n%s\r\n", nargs + 1, command.length, command);
-	RedisConnection.writeArgs(&rng, args);
+	auto rng = streamOutputRange(conn.conn);
+	formattedWrite(() @trusted { return &rng; } (), "*%d\r\n$%d\r\n%s\r\n", nargs + 1, command.length, command);
+	RedisConnection.writeArgs(() @trusted { return &rng; } (), args);
 }
 
 private RedisReply!T _request_reply(T = ubyte[], ARGS...)(RedisConnection conn, string command, scope ARGS args)
@@ -1516,9 +1526,9 @@ private RedisReply!T _request_reply(T = ubyte[], ARGS...)(RedisConnection conn, 
 	}
 
 	auto nargs = conn.countArgs(args);
-	auto rng = StreamOutputRange(conn.conn);
-	formattedWrite(&rng, "*%d\r\n$%d\r\n%s\r\n", nargs + 1, command.length, command);
-	RedisConnection.writeArgs(&rng, args);
+	auto rng = streamOutputRange(conn.conn);
+	formattedWrite(() @trusted { return &rng; } (), "*%d\r\n$%d\r\n%s\r\n", nargs + 1, command.length, command);
+	RedisConnection.writeArgs(() @trusted { return &rng; } (), args);
 	rng.flush();
 
 	return conn.getReply!T;
@@ -1545,15 +1555,15 @@ private T _request(T, ARGS...)(LockedConnection!RedisConnection conn, string com
 	}
 }
 
-private T convertToType(T)(ubyte[] data)
+private T convertToType(T)(ubyte[] data) /// NOTE: data must be unique!
 {
-	static if (isSomeString!T) validate(cast(T)data);
+	static if (isSomeString!T) () @trusted { validate(cast(T)data); } ();
 
 	static if (is(T == ubyte[])) return data;
 	else static if (is(T == string)) return cast(T)data.idup;
 	else static if (is(T == bool)) return data[0] == '1';
 	else static if (is(T == int) || is(T == long) || is(T == size_t) || is(T == double)) {
-		auto str = cast(string)data;
+		auto str = () @trusted { return cast(string)data; } ();
 		return parse!T(str);
 	}
 	else static assert(false, "Unsupported Redis reply type: " ~ T.stringof);

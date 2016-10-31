@@ -19,10 +19,14 @@ import std.exception;
 import std.string;
 import std.uuid;
 
+@safe:
+
 enum NonceState { Valid, Expired, Invalid }
 
 class DigestAuthInfo
 {
+	@safe:
+
 	string realm;
 	ubyte[] secret;
 	ulong timeout;
@@ -36,7 +40,7 @@ class DigestAuthInfo
 	string createNonce(in HTTPServerRequest req)
 	{
 		auto now = Clock.currTime(UTC()).stdTime();
-		auto time = *cast(ubyte[now.sizeof]*)&now;
+		auto time = () @trusted { return *cast(ubyte[now.sizeof]*)&now; } ();
 		MD5 md5;
 		md5.put(time);
 		md5.put(secret);
@@ -49,18 +53,19 @@ class DigestAuthInfo
 		auto now = Clock.currTime(UTC()).stdTime();
 		ubyte[] decoded = Base64.decode(nonce);
 		if (decoded.length != now.sizeof + secret.length) return NonceState.Invalid;
-		auto time = decoded[0..now.sizeof];
-		if (timeout + *cast(typeof(now)*)time.ptr > now) return NonceState.Expired;
+		auto timebytes = decoded[0 .. now.sizeof];
+		auto time = () @trusted { return (cast(typeof(now)[])timebytes)[0]; } ();
+		if (timeout + time > now) return NonceState.Expired;
 		MD5 md5;
-		md5.put(time);
+		md5.put(timebytes);
 		md5.put(secret);
 		auto data = md5.finish();
-		if (data[] != decoded[now.sizeof..$]) return NonceState.Invalid;
+		if (data[] != decoded[now.sizeof .. $]) return NonceState.Invalid;
 		return NonceState.Valid;
 	}
 }
 
-private bool checkDigest(scope HTTPServerRequest req, DigestAuthInfo info, scope string delegate(string realm, string user) pwhash, out bool stale, out string username)
+private bool checkDigest(scope HTTPServerRequest req, DigestAuthInfo info, scope string delegate(string realm, string user) @safe pwhash, out bool stale, out string username)
 {
 	stale = false;
 	username = "";
@@ -104,10 +109,10 @@ private bool checkDigest(scope HTTPServerRequest req, DigestAuthInfo info, scope
 /**
 	Returns a request handler that enforces request to be authenticated using HTTP Digest Auth.
 */
-HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string delegate(string realm, string user) pwhash)
+HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string delegate(string realm, string user) @safe pwhash)
 {
 	void handleRequest(HTTPServerRequest req, HTTPServerResponse res)
-	{
+	@safe {
 		bool stale;
 		string username;
 		if (checkDigest(req, info, pwhash, stale, username)) {
@@ -137,7 +142,7 @@ HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string de
 
 	Throws: Throws a HTTPStatusExeption in case of an authentication failure.
 */
-string performDigestAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, DigestAuthInfo info, scope string delegate(string realm, string user) pwhash)
+string performDigestAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, DigestAuthInfo info, scope string delegate(string realm, string user) @safe pwhash)
 {
 	bool stale;
 	string username;

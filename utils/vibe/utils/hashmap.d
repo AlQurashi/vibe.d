@@ -36,7 +36,7 @@ struct DefaultHashMapTraits(Key) {
 				return typeinfo.getHash(&k);
 			}
 			static @nogc nothrow size_t properlyTypedWrapper(in ref Key k) { return 0; }
-			return (cast(typeof(&properlyTypedWrapper))&hashWrapper)(k);
+			return () @trusted { return (cast(typeof(&properlyTypedWrapper))&hashWrapper)(k); } ();
 		}
 	}
 }
@@ -69,10 +69,10 @@ struct HashMap(TKey, TValue, Traits = DefaultHashMapTraits!TKey)
 	~this()
 	{
 		clear();
-		if (m_table.ptr !is null) {
+		if (m_table.ptr !is null) () @trusted {
 			try m_allocator.dispose(m_table);
 			catch (Exception e) assert(false, e.msg);
-		}
+		} ();
 	}
 
 	@disable this(this);
@@ -189,7 +189,7 @@ struct HashMap(TKey, TValue, Traits = DefaultHashMapTraits!TKey)
 	}
 
 	private size_t findInsertIndex(Key key)
-	const {
+	const @safe {
 		auto hash = Traits.hashOf(key);
 		size_t target = hash & (m_table.length-1);
 		auto i = target;
