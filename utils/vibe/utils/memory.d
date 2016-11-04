@@ -8,7 +8,6 @@
 	License: Subject to the terms of the MIT license, as written in the included LICENSE.txt file.
 	Authors: Sönke Ludwig
 */
-deprecated("Use the memutils package or std.experimental.allocator instead.")
 module vibe.utils.memory;
 
 import vibe.internal.meta.traits : synchronizedIsNothrow;
@@ -188,10 +187,8 @@ final class DebugAllocator : Allocator {
 
 	this(Allocator base_allocator) nothrow @safe
 	{
-		import std.experimental.allocator : allocatorObject;
-		import std.experimental.allocator.mallocator : Mallocator;
 		m_baseAlloc = base_allocator;
-		m_blocks = HashMap!(void*, size_t)(Mallocator.instance.allocatorObject);
+		m_blocks = HashMap!(void*, size_t)(manualAllocator());
 	}
 
 	@property size_t allocatedBlockCount() const { return m_blocks.length; }
@@ -203,8 +200,7 @@ final class DebugAllocator : Allocator {
 		auto ret = m_baseAlloc.alloc(sz);
 		assert(ret.length == sz, "base.alloc() returned block with wrong size.");
 		assert(m_blocks.getNothrow(ret.ptr, size_t.max) == size_t.max, "base.alloc() returned block that is already allocated.");
-		try m_blocks[ret.ptr] = sz;
-		catch (Exception e) assert(false, e.msg);
+		m_blocks[ret.ptr] = sz;
 		m_bytes += sz;
 		if( m_bytes > m_maxBytes ){
 			m_maxBytes = m_bytes;
@@ -223,8 +219,7 @@ final class DebugAllocator : Allocator {
 		assert(ret.ptr is mem.ptr || m_blocks.getNothrow(ret.ptr, size_t.max) == size_t.max, "base.realloc() returned block that is already allocated.");
 		m_bytes -= sz;
 		m_blocks.remove(mem.ptr);
-		try m_blocks[ret.ptr] = new_size;
-		catch (Exception e) assert(false, e.msg);
+		m_blocks[ret.ptr] = new_size;
 		m_bytes += new_size;
 		return ret;
 	}

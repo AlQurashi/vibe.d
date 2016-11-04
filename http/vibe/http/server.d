@@ -887,18 +887,15 @@ final class HTTPServerResponse : HTTPResponse {
 		SysTime m_timeFinalized;
 	}
 
-<<<<<<< HEAD
-	this(Stream conn, ConnectionStream raw_connection, HTTPServerSettings settings, IAllocator req_alloc)
-	{
-=======
-	this(Stream conn, ConnectionStream raw_connection, HTTPServerSettings settings, Allocator req_alloc)
-	@safe {
-		this(InterfaceProxy!Stream(conn), InterfaceProxy!ConnectionStream(raw_connection), settings, req_alloc);
+	static if (!is(Stream == InterfaceProxy!Stream)) {
+		this(Stream conn, ConnectionStream raw_connection, HTTPServerSettings settings, IAllocator req_alloc)
+		@safe {
+			this(InterfaceProxy!Stream(conn), InterfaceProxy!ConnectionStream(raw_connection), settings, req_alloc);
+		}
 	}
 
-	this(InterfaceProxy!Stream conn, InterfaceProxy!ConnectionStream raw_connection, HTTPServerSettings settings, Allocator req_alloc)
+	this(InterfaceProxy!Stream conn, InterfaceProxy!ConnectionStream raw_connection, HTTPServerSettings settings, IAllocator req_alloc)
 	@safe {
->>>>>>> 23b2d8f... Now compiles successfully with vibe-core.
 		m_conn = conn;
 		m_rawConnection = raw_connection;
 		m_countingWriter = createCountingOutputStreamFL(conn);
@@ -1452,6 +1449,8 @@ private final class HTTPListenInfo {
 private enum MaxHTTPHeaderLineLength = 4096;
 
 private final class LimitedHTTPInputStream : LimitedInputStream {
+@safe:
+
 	this(InterfaceProxy!InputStream stream, ulong byte_limit, bool silent_limit = false) {
 		super(stream.asInterface!InputStream, byte_limit, silent_limit);
 	}
@@ -1461,6 +1460,8 @@ private final class LimitedHTTPInputStream : LimitedInputStream {
 }
 
 private final class TimeoutHTTPInputStream : InputStream {
+@safe:
+
 	private {
 		long m_timeref;
 		long m_timeleft;
@@ -1560,7 +1561,8 @@ private void listenHTTPPlain(HTTPServerSettings settings)
 					catch (Exception e) {
 						logError("HTTP connection hander has thrown: %s", e.msg);
 						debug logDebug("Full error: %s", () @trusted { return e.toString().sanitize(); } ());
-						conn.close();
+						try conn.close();
+						catch (Exception e) logError("Failed to close connection: %s", e.msg);
 					}
 				}, listen_info.bindAddress, options);
 			auto proto = listen_info.tlsContext ? "https" : "http";
@@ -1696,27 +1698,16 @@ private void handleHTTPConnection(TCPConnection connection, HTTPListenInfo liste
 	logTrace("Done handling connection.");
 }
 
-<<<<<<< HEAD
 private bool handleRequest(Stream http_stream, TCPConnection tcp_connection, HTTPListenInfo listen_info, ref HTTPServerSettings settings, ref bool keep_alive)
-{
+@safe {
 	import std.algorithm.searching : canFind;
 	import std.algorithm.comparison : max;
-=======
-private bool handleRequest(ref InterfaceProxy!Stream http_stream, TCPConnection tcp_connection, HTTPListenInfo listen_info, ref HTTPServerSettings settings, ref bool keep_alive)
-@safe {
-	import std.algorithm : canFind;
->>>>>>> 23b2d8f... Now compiles successfully with vibe-core.
 
 	SysTime reqtime = Clock.currTime(UTC());
 
 	//auto request_allocator = scoped!(PoolAllocator)(1024, defaultAllocator());
-<<<<<<< HEAD
 	auto request_allocator_s = AllocatorList!((n) => Region!GCAllocator(max(n, 1024)), NullAllocator).init;
 	scope request_allocator = request_allocator_s.allocatorObject;
-=======
-	/*scope*/ auto request_allocator = new PoolAllocator(1024, () @trusted { return threadLocalAllocator(); } ());
-	scope(exit) () @trusted { request_allocator.reset(); } ();
->>>>>>> 23b2d8f... Now compiles successfully with vibe-core.
 
 	// some instances that live only while the request is running
 	FreeListRef!HTTPServerRequest req = FreeListRef!HTTPServerRequest(reqtime, listen_info.bindPort);
@@ -1757,9 +1748,15 @@ private bool handleRequest(ref InterfaceProxy!Stream http_stream, TCPConnection 
 	req.m_settings = settings;
 
 	// Create the response object
-	auto res = FreeListRef!HTTPServerResponse(http_stream, InterfaceProxy!ConnectionStream(tcp_connection), settings, request_allocator/*.Scoped_payload*/);
+	InterfaceProxy!ConnectionStream cproxy = tcp_connection;
+	auto res = FreeListRef!HTTPServerResponse(http_stream, cproxy, settings, request_allocator/*.Scoped_payload*/);
 	req.tls = res.m_tls = listen_info.tlsContext !is null;
-	if (req.tls) req.clientCertificate = http_stream.extract!(FreeListRef!TLSStream).peerCertificate;
+	if (req.tls) {
+		static if (is(InterfaceProxy!ConnectionStream == ConnectionStream))
+			req.clientCertificate = (cast(TLSStream)http_stream).peerCertificate;
+		else
+			req.clientCertificate = http_stream.extract!(FreeListRef!TLSStream).peerCertificate;
+	}
 
 	// Error page handler
 	void errorOut(int code, string msg, string debug_msg, Throwable ex)
@@ -1863,7 +1860,8 @@ private bool handleRequest(ref InterfaceProxy!Stream http_stream, TCPConnection 
 		} else if (auto pt = "Transfer-Encoding" in req.headers) {
 			enforceBadRequest(icmp(*pt, "chunked") == 0);
 			chunked_input_stream = createChunkedInputStreamFL(reqReader);
-			limited_http_input_stream = FreeListRef!LimitedHTTPInputStream(InterfaceProxy!InputStream(chunked_input_stream), settings.maxRequestSize, true);
+			InterfaceProxy!InputStream ciproxy = chunked_input_stream;
+			limited_http_input_stream = FreeListRef!LimitedHTTPInputStream(ciproxy, settings.maxRequestSize, true);
 		} else {
 			limited_http_input_stream = FreeListRef!LimitedHTTPInputStream(reqReader, 0);
 		}
@@ -1997,12 +1995,8 @@ private bool handleRequest(ref InterfaceProxy!Stream http_stream, TCPConnection 
 }
 
 
-<<<<<<< HEAD
-private void parseRequestHeader(HTTPServerRequest req, InputStream http_stream, IAllocator alloc, ulong max_header_size)
-=======
-private void parseRequestHeader(InputStream)(HTTPServerRequest req, InputStream http_stream, Allocator alloc, ulong max_header_size)
+private void parseRequestHeader(InputStream)(HTTPServerRequest req, InputStream http_stream, IAllocator alloc, ulong max_header_size)
 	if (isInputStream!InputStream)
->>>>>>> 23b2d8f... Now compiles successfully with vibe-core.
 {
 	auto stream = FreeListRef!LimitedHTTPInputStream(http_stream, max_header_size);
 
@@ -2087,13 +2081,8 @@ shared static this()
 	}
 }
 
-<<<<<<< HEAD
 private string formatRFC822DateAlloc(IAllocator alloc, SysTime time)
-{
-=======
-private string formatRFC822DateAlloc(Allocator alloc, SysTime time)
 @safe {
->>>>>>> 23b2d8f... Now compiles successfully with vibe-core.
 	auto app = AllocAppender!string(alloc);
 	writeRFC822DateTimeString(app, time);
 	return () @trusted { return app.data; } ();

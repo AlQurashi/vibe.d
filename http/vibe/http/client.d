@@ -368,10 +368,10 @@ final class HTTPClient {
 				m_conn.close();
 			}
 			if (m_useTLS) {
-				destroy(m_stream);
+				() @trusted { return destroy(m_stream); } ();
 				m_stream = InterfaceProxy!Stream.init;
 			}
-			destroy(m_conn);
+			() @trusted { return destroy(m_conn); } ();
 			m_conn = TCPConnection.init;
 		}
 	}
@@ -601,7 +601,7 @@ final class HTTPClient {
 						sockaddr_un* s = addr.sockAddrUnix();
 						enforce(s.sun_path.length > m_server.length, "Unix sockets cannot have that long a name.");
 						s.sun_family = AF_UNIX;
-						strcpy(cast(char*)s.sun_path.ptr,m_server.toStringz());
+						() @trusted { strcpy(cast(char*)s.sun_path.ptr,m_server.toStringz()); } ();
 					} else
 					{
 						addr = resolveHost(m_server, m_settings.dnsAddressFamily);

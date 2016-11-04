@@ -51,7 +51,7 @@ ZlibOutputStream createGzipOutputStream(OutputStream destination)
 */
 deprecated("Use createDeflateOutputStream instead.")
 final class DeflateOutputStream : ZlibOutputStream {
-	this(OutputStream dst)
+	@safe this(OutputStream dst)
 	{
 		super(dst, HeaderFormat.deflate);
 	}
@@ -63,7 +63,7 @@ final class DeflateOutputStream : ZlibOutputStream {
 */
 deprecated("Use createGzipOutputStream instead.")
 final class GzipOutputStream : ZlibOutputStream {
-	this(OutputStream dst)
+	@safe this(OutputStream dst)
 	{
 		super(dst, HeaderFormat.gzip);
 	}
@@ -73,6 +73,8 @@ final class GzipOutputStream : ZlibOutputStream {
 	Generic zlib output stream.
 */
 class ZlibOutputStream : OutputStream {
+@safe:
+
 	private {
 		OutputStream m_out;
 		z_stream m_zstream;
@@ -96,12 +98,12 @@ class ZlibOutputStream : OutputStream {
 	this(OutputStream dst, HeaderFormat type, int level, bool dummy)
 	{
 		m_out = dst;
-		zlibEnforce(deflateInit2(&m_zstream, level, Z_DEFLATED, 15 + (type == HeaderFormat.gzip ? 16 : 0), 8, Z_DEFAULT_STRATEGY));
+		zlibEnforce(() @trusted { return deflateInit2(&m_zstream, level, Z_DEFLATED, 15 + (type == HeaderFormat.gzip ? 16 : 0), 8, Z_DEFAULT_STRATEGY); } ());
 	}
 
 	~this() {
 		if (!m_finalized)
-			deflateEnd(&m_zstream);
+			() @trusted { deflateEnd(&m_zstream); } ();
 	}
 
 	final void write(in ubyte[] data)
@@ -141,7 +143,7 @@ class ZlibOutputStream : OutputStream {
 	private final void doFlush(int how)
 	@safe {
 		while (true) {
-			m_zstream.next_out = m_outbuffer.ptr;
+			m_zstream.next_out = &m_outbuffer[0];
 			m_zstream.avail_out = cast(uint)m_outbuffer.length;
 			//logInfo("deflate %s -> %s (%s)", m_zstream.avail_in, m_zstream.avail_out, how);
 			auto ret = () @trusted { return deflate(&m_zstream, how); } ();
@@ -173,7 +175,7 @@ class ZlibOutputStream : OutputStream {
 */
 deprecated("Use createDeflateInputStream instead.")
 class DeflateInputStream : ZlibInputStream {
-	this(InputStream dst)
+	@safe this(InputStream dst)
 	{
 		super(dst, HeaderFormat.deflate);
 	}
@@ -187,7 +189,7 @@ class DeflateInputStream : ZlibInputStream {
 deprecated("Use createGzipInputStream instead.")
 class GzipInputStream : ZlibInputStream {
 	this(InputStream dst)
-	{
+	@safe {
 		super(dst, HeaderFormat.gzip);
 	}
 }
@@ -227,6 +229,8 @@ unittest {
 	Generic zlib input stream.
 */
 class ZlibInputStream : InputStream {
+@safe:
+
 	import std.zlib;
 	private {
 		InputStream m_in;
@@ -259,14 +263,14 @@ class ZlibInputStream : InputStream {
 			int wndbits = 15;
 			if(type == HeaderFormat.gzip) wndbits += 16;
 			else if(type == HeaderFormat.automatic) wndbits += 32;
-			zlibEnforce(inflateInit2(&m_zstream, wndbits));
+			zlibEnforce(() @trusted { return inflateInit2(&m_zstream, wndbits); } ());
 			readChunk();
 		}
 	}
 
 	~this() {
 		if (!m_finished)
-			inflateEnd(&m_zstream);
+			() @trusted { inflateEnd(&m_zstream); } ();
 	}
 
 	@property bool empty() { return this.leastSize == 0; }

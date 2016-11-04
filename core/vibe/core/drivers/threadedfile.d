@@ -67,6 +67,8 @@ private {
 }
 
 final class ThreadedFileStream : FileStream {
+@safe:
+
 	private {
 		int m_fileDescriptor;
 		Path m_path;
@@ -79,20 +81,23 @@ final class ThreadedFileStream : FileStream {
 	this(Path path, FileMode mode)
 	{
 		auto pathstr = path.toNativeString();
-		final switch(mode){
-			case FileMode.read:
-				m_fileDescriptor = open(pathstr.toStringz(), O_RDONLY|O_BINARY);
-				break;
-			case FileMode.readWrite:
-				m_fileDescriptor = open(pathstr.toStringz(), O_RDWR|O_BINARY);
-				break;
-			case FileMode.createTrunc:
-				m_fileDescriptor = open(pathstr.toStringz(), O_RDWR|O_CREAT|O_TRUNC|O_BINARY, octal!644);
-				break;
-			case FileMode.append:
-				m_fileDescriptor = open(pathstr.toStringz(), O_WRONLY|O_CREAT|O_APPEND|O_BINARY, octal!644);
-				break;
-		}
+		() @trusted {
+			final switch(mode) {
+				case FileMode.read:
+					m_fileDescriptor = open(pathstr.toStringz(), O_RDONLY|O_BINARY);
+					break;
+				case FileMode.readWrite:
+					m_fileDescriptor = open(pathstr.toStringz(), O_RDWR|O_BINARY);
+					break;
+				case FileMode.createTrunc:
+					m_fileDescriptor = open(pathstr.toStringz(), O_RDWR|O_CREAT|O_TRUNC|O_BINARY, octal!644);
+					break;
+				case FileMode.append:
+					m_fileDescriptor = open(pathstr.toStringz(), O_WRONLY|O_CREAT|O_APPEND|O_BINARY, octal!644);
+					break;
+			}
+		} ();
+		
 		if( m_fileDescriptor < 0 )
 			//throw new Exception(format("Failed to open '%s' with %s: %d", pathstr, cast(int)mode, errno));
 			throw new Exception("Failed to open file '"~pathstr~"'.");
@@ -179,7 +184,7 @@ final class ThreadedFileStream : FileStream {
 		while (dst.length > 0) {
 			enforce(dst.length <= leastSize);
 			auto sz = min(dst.length, 4096);
-			enforce(.read(m_fileDescriptor, dst.ptr, cast(int)sz) == sz, "Failed to read data from disk.");
+			enforce(() @trusted { return .read(m_fileDescriptor, dst.ptr, cast(int)sz); } () == sz, "Failed to read data from disk.");
 			dst = dst[sz .. $];
 			m_ptr += sz;
 			yield();
@@ -193,7 +198,7 @@ final class ThreadedFileStream : FileStream {
 		assert(this.writable);
 		while (bytes.length > 0) {
 			auto sz = min(bytes.length, 4096);
-			auto ret = .write(m_fileDescriptor, bytes.ptr, cast(int)sz);
+			auto ret = () @trusted { return .write(m_fileDescriptor, bytes.ptr, cast(int)sz); } ();
 			enforce(ret == sz, "Failed to write data to disk."~to!string(sz)~" "~to!string(errno)~" "~to!string(ret)~" "~to!string(m_fileDescriptor));
 			bytes = bytes[sz .. $];
 			m_ptr += sz;

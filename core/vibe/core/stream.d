@@ -27,7 +27,7 @@ import std.conv;
 	all subsequent calls from the same thread.
 */
 NullOutputStream nullSink()
-{
+@safe {
 	static NullOutputStream ret;
 	if (!ret) ret = new NullOutputStream;
 	return ret;
@@ -41,6 +41,8 @@ NullOutputStream nullSink()
 	Interface for all classes implementing readable streams.
 */
 interface InputStream {
+@safe:
+
 	/** Returns true $(I iff) the end of the input stream has been reached.
 	*/
 	@property bool empty();
@@ -77,6 +79,8 @@ interface InputStream {
 	Interface for all classes implementing writeable streams.
 */
 interface OutputStream {
+@safe:
+
 	/** Writes an array of bytes to the stream.
 	*/
 	void write(in ubyte[] bytes);
@@ -153,6 +157,8 @@ interface Stream : InputStream, OutputStream {
 	See_also: vibe.core.net.TCPConnection
 */
 interface ConnectionStream : Stream {
+@safe:
+
 	/** Determines The current connection status.
 
 		If connected is false, writing to the connection will trigger an
@@ -196,6 +202,8 @@ interface ConnectionStream : Stream {
 	Interface for all streams supporting random access.
 */
 interface RandomAccessStream : Stream {
+@safe:
+
 	/// Returns the total size of the file.
 	@property ulong size() const nothrow;
 
@@ -234,3 +242,9 @@ enum isOutputStream(T) = is(T : OutputStream);
 enum isStream(T) = is(T : Stream);
 enum isConnectionStream(T) = is(T : ConnectionStream);
 enum isRandomAccessStream(T) = is(T : RandomAccessStream);
+
+mixin template validateInputStream(T) { static assert(isInputStream!T); }
+mixin template validateOutputStream(T) { static assert(isOutputStream!T); }
+mixin template validateStream(T) { static assert(isStream!T); }
+mixin template validateConnectionStream(T) { static assert(isConnectionStream!T); }
+mixin template validateRandomAccessStream(T) { static assert(isRandomAccessStream!T); }

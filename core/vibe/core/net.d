@@ -29,6 +29,9 @@ version(Posix)
 	import core.sys.posix.sys.un;
 }
 
+@safe:
+
+
 /**
 	Resolves the given host name/IP address string.
 
@@ -80,12 +83,12 @@ TCPListener listenTCP(ushort port, void delegate(TCPConnection stream) connectio
 */
 TCPListener[] listenTCP_s(ushort port, void function(TCPConnection stream) connection_callback, TCPListenOptions options = TCPListenOptions.defaults)
 {
-	return listenTCP(port, toDelegate(connection_callback), options);
+	return listenTCP(port, () @trusted { return toDelegate(connection_callback); } (), options);
 }
 /// ditto
 TCPListener listenTCP_s(ushort port, void function(TCPConnection stream) connection_callback, string address, TCPListenOptions options = TCPListenOptions.defaults)
 {
-	return listenTCP(port, toDelegate(connection_callback), address, options);
+	return listenTCP(port, () @trusted { return toDelegate(connection_callback); } (), address, options);
 }
 
 /**

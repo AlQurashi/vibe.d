@@ -581,7 +581,7 @@ struct ArraySet(Key)
 
 	bool opBinaryRight(string op)(Key key) if (op == "in") { return contains(key); }
 
-	int opApply(int delegate(ref Key) del)
+	int opApply(int delegate(ref Key) @safe del)
 	{
 		foreach (ref k; m_staticEntries)
 			if (k != Key.init)

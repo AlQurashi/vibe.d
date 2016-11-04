@@ -75,7 +75,7 @@ struct Task {
 
 	T opCast(T)() const nothrow if (is(T == bool)) { return m_fiber !is null; }
 
-	void join() { if (running) fiber.join(); }
+	void join() @safe { if (running) fiber.join(); }
 	void interrupt() { if (running) fiber.interrupt(); }
 	void terminate() { if (running) fiber.terminate(); }
 
@@ -128,7 +128,7 @@ class TaskFiber : Fiber {
 
 	/** Blocks until the task has ended.
 	*/
-	abstract void join();
+	abstract void join() @safe;
 
 	/** Throws an InterruptExeption within the task as soon as it calls a blocking function.
 	*/

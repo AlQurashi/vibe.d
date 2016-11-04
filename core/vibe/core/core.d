@@ -262,12 +262,12 @@ bool processEvents()
 	be triggered immediately after processing any events that have arrived in the
 	meantime. Returning false will instead wait until another event has arrived first.
 */
-void setIdleHandler(void delegate() del)
+void setIdleHandler(void delegate() @safe del)
 {
 	s_idleHandler = { del(); return false; };
 }
 /// ditto
-void setIdleHandler(bool delegate() del)
+void setIdleHandler(bool delegate() @safe del)
 {
 	s_idleHandler = del;
 }
@@ -281,6 +281,12 @@ void setIdleHandler(bool delegate() del)
 
 	Note that the maximum size of all args must not exceed `maxTaskParameterSize`.
 */
+Task runTask(ARGS...)(void delegate(ARGS) @safe task, ARGS args)
+{
+	auto tfi = makeTaskFuncInfo(task, args);
+	return runTask_internal(tfi);
+}
+/// ditto
 Task runTask(ARGS...)(void delegate(ARGS) task, ARGS args)
 {
 	auto tfi = makeTaskFuncInfo(task, args);
@@ -323,6 +329,10 @@ private Task runTask_internal(ref TaskFuncInfo tfi)
 	}
 
 	return handle;
+}
+
+@safe unittest {
+	runTask({});
 }
 
 /**
@@ -378,7 +388,7 @@ Task runWorkerTaskH(FT, ARGS...)(FT func, auto ref ARGS args)
 		mixin(callWithMove!ARGS("func", "args"));
 	}
 	runWorkerTask_unsafe(&taskFun, caller, func, args);
-	return cast(Task)receiveOnlyCompat!PrivateTask();
+	return () @trusted { return cast(Task)receiveOnlyCompat!PrivateTask(); } ();
 }
 /// ditto
 Task runWorkerTaskH(alias method, T, ARGS...)(shared(T) object, auto ref ARGS args)
@@ -402,7 +412,7 @@ Task runWorkerTaskH(alias method, T, ARGS...)(shared(T) object, auto ref ARGS ar
 	assert(caller != Task.init, "runWorkderTaskH can currently only be called from within a task.");
 	static void taskFun(Task caller, FT func, ARGS args) {
 		PrivateTask callee = Task.getThis();
-		caller.prioritySendCompat(callee);
+		() @trusted { caller.prioritySendCompat(callee); } ();
 		mixin(callWithMove!ARGS("func", "args"));
 	}
 	runWorkerTask_unsafe(&taskFun, caller, func, args);
@@ -524,8 +534,10 @@ private void runWorkerTask_unsafe(CALLABLE, ARGS...)(CALLABLE callable, ref ARGS
 
 	auto tfi = makeTaskFuncInfo(callable, args);
 
-	synchronized (st_threadsMutex) st_workerTasks ~= tfi;
-	st_threadsSignal.emit();
+	() @trusted {
+		synchronized (st_threadsMutex) st_workerTasks ~= tfi;
+		st_threadsSignal.emit();
+	} ();
 }
 
 
@@ -634,22 +646,24 @@ import core.cpuid : threadsPerCPU;
 	See_also: `runWorkerTask`, `runWorkerTaskH`, `runWorkerTaskDist`
 */
 public void setupWorkerThreads(uint num = logicalProcessorCount())
-{
+@safe {
 	static bool s_workerThreadsStarted = false;
 	if (s_workerThreadsStarted) return;
 	s_workerThreadsStarted = true;
 
-	synchronized (st_threadsMutex) {
-		if (st_threads.any!(t => t.isWorker))
-			return;
+	() @trusted {
+		synchronized (st_threadsMutex) {
+			if (st_threads.any!(t => t.isWorker))
+				return;
 
-		foreach (i; 0 .. num) {
-			auto thr = new Thread(&workerThreadFunc);
-			thr.name = format("Vibe Task Worker #%s", i);
-			st_threads ~= ThreadContext(thr, true);
-			thr.start();
+			foreach (i; 0 .. num) {
+				auto thr = new Thread(&workerThreadFunc);
+				thr.name = format("Vibe Task Worker #%s", i);
+				st_threads ~= ThreadContext(thr, true);
+				thr.start();
+			}
 		}
-	}
+	} ();
 }
 
 
@@ -777,8 +791,8 @@ unittest {
 
 	See_also: createTimer
 */
-Timer setTimer(Duration timeout, void delegate() callback, bool periodic = false)
-{
+Timer setTimer(Duration timeout, void delegate() @safe callback, bool periodic = false)
+@safe {
 	auto tm = createTimer(callback);
 	tm.rearm(timeout, periodic);
 	return tm;
@@ -805,8 +819,8 @@ unittest {
 
 	See_also: setTimer
 */
-Timer createTimer(void delegate() callback)
-{
+Timer createTimer(void delegate() @safe callback)
+@safe {
 	auto drv = getEventDriver();
 	return Timer(drv, drv.createTimer(callback));
 }
@@ -955,6 +969,8 @@ enum maxTaskParameterSize = 128;
 	Represents a timer.
 */
 struct Timer {
+@safe:
+
 	private {
 		EventDriver m_driver;
 		size_t m_id;
@@ -995,7 +1011,7 @@ struct Timer {
 
 	/** Resets the timer and avoids any firing.
 	*/
-	void stop() { m_driver.stopTimer(m_id); }
+	void stop() nothrow { m_driver.stopTimer(m_id); }
 
 	/** Waits until the timer fires.
 	*/
@@ -1281,7 +1297,7 @@ private class CoreTask : TaskFiber {
 			assert(caller.fiber !is this, "A task cannot join itself.");
 			assert(caller.thread is this.thread, "Joining tasks in foreign threads is currently not supported.");
 			m_yielders ~= caller;
-		} else assert(Thread.getThis() is this.thread, "Joining tasks in different threads is not yet supported.");
+		} else assert(() @trusted { return Thread.getThis(); } () is this.thread, "Joining tasks in different threads is not yet supported.");
 		auto run_count = m_taskCounter;
 		if (caller == Task.init) .yield(); // let the task continue (it must be yielded currently)
 		while (m_running && run_count == m_taskCounter) rawYield();
@@ -1305,6 +1321,8 @@ private class CoreTask : TaskFiber {
 
 
 private class VibeDriverCore : DriverCore {
+@safe:
+
 	private {
 		Duration m_gcCollectTimeout;
 		Timer m_gcTimer;
@@ -1418,7 +1436,7 @@ private class VibeDriverCore : DriverCore {
 		}
 		if (!s_yieldedTasks.empty) logDebug("Exiting from idle processing although there are still yielded tasks (exit=%s)", getExitFlag());
 
-		if (Thread.getThis() is st_mainThread) {
+		if (() @trusted { return Thread.getThis() is st_mainThread; } ()) {
 			if (!m_ignoreIdleForGC && m_gcTimer) {
 				m_gcTimer.rearm(m_gcCollectTimeout);
 			} else m_ignoreIdleForGC = false;
@@ -1434,7 +1452,7 @@ private class VibeDriverCore : DriverCore {
 	}
 
 	private void resumeYieldedTasks()
-	nothrow {
+	nothrow @safe {
 		for (auto limit = s_yieldedTasks.length; limit > 0 && !s_yieldedTasks.empty; limit--) {
 			auto tf = s_yieldedTasks.front;
 			s_yieldedTasks.popFront();
@@ -1485,8 +1503,10 @@ private class VibeDriverCore : DriverCore {
 	{
 		import core.memory;
 		logTrace("gc idle collect");
-		GC.collect();
-		GC.minimize();
+		() @trusted {
+			GC.collect();
+			GC.minimize();
+		} ();
 		m_ignoreIdleForGC = true;
 	}
 }
@@ -1501,29 +1521,29 @@ private struct ThreadContext {
 
 private struct TaskFuncInfo {
 	void function(TaskFuncInfo*) func;
-	void[2*size_t.sizeof] callable = void;
-	void[maxTaskParameterSize] args = void;
+	void[2*size_t.sizeof] callable;
+	void[maxTaskParameterSize] args;
 
 	@property ref C typedCallable(C)()
-	{
+	@trusted {
 		static assert(C.sizeof <= callable.sizeof);
 		return *cast(C*)callable.ptr;
 	}
 
 	@property ref A typedArgs(A)()
-	{
+	@trusted {
 		static assert(A.sizeof <= args.sizeof);
 		return *cast(A*)args.ptr;
 	}
 
 	void initCallable(C)()
-	{
+	@trusted {
 		C cinit;
 		this.callable[0 .. C.sizeof] = cast(void[])(&cinit)[0 .. 1];
 	}
 
 	void initArgs(A)()
-	{
+	@trusted {
 		A ainit;
 		this.args[0 .. A.sizeof] = cast(void[])(&ainit)[0 .. 1];
 	}
@@ -1553,7 +1573,7 @@ private {
 
 	bool s_exitEventLoop = false;
 	bool s_eventLoopRunning = false;
-	bool delegate() s_idleHandler;
+	bool delegate() @safe s_idleHandler;
 	CoreTaskQueue s_yieldedTasks;
 	Variant[string] s_taskLocalStorageGlobal; // for use outside of a task
 	FixedRingBuffer!CoreTask s_availableFibers;
@@ -1567,7 +1587,7 @@ private {
 private static @property VibeDriverCore driverCore() @trusted nothrow { return s_core; }
 
 private bool getExitFlag()
-{
+@trusted {
 	return s_exitEventLoop || atomicLoad(st_term);
 }
 
