@@ -12,7 +12,7 @@ public import vibe.core.stream;
 
 import std.exception;
 import vibe.internal.interfaceproxy;
-import vibe.utils.memory : FreeListRef;
+import vibe.internal.memory : FreeListRef;
 
 
 /** Constructs a limited stream from an existing input stream.

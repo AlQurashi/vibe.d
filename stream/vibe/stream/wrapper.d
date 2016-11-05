@@ -25,7 +25,7 @@ ProxyStream createProxyStream(Stream)(Stream stream)
 ProxyStream createProxyStream(InputStream, OutputStream)(InputStream input, OutputStream output)
 	if (isInputStream!InputStream && isOutputStream!OutputStream)
 {
-	return new ProxyStream(input.asInterface!InputStream, output.asInterface!OutputStream, true);
+	return new ProxyStream(input.asInterface!(.InputStream), output.asInterface!(.OutputStream), true);
 }
 
 ConnectionProxyStream createConnectionProxyStream(Stream, ConnectionStream)(Stream stream, ConnectionStream connection_stream)

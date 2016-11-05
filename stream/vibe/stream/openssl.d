@@ -1000,7 +1000,7 @@ private nothrow @safe extern(C)
 				auto proto = input[i .. i+len];
 				i += len;
 				if (proto == alpn) {
-					*output = proto.ptr;
+					*output = &proto[0];
 					*outlen = cast(ubyte) proto.length;
 				}
 			}
@@ -1008,8 +1008,9 @@ private nothrow @safe extern(C)
 
 		if (!output) {
 			logError("None of the proposed ALPN were selected: %s / falling back on HTTP/1.1", input);
-			*output = cast(const(char)*)("http/1.1".ptr);
-			*outlen = cast(ubyte)("http/1.1".length);
+			enum hdr = "http/1.1";
+			*output = &hdr[0];
+			*outlen = cast(ubyte)hdr.length;
 		}
 
 		return 0;

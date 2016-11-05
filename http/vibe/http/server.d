@@ -346,8 +346,8 @@ HTTPServerResponse createTestHTTPServerResponse(OutputStream data_sink = null, S
 		settings.sessionStore = session_store;
 	}
 	if (!data_sink) data_sink = new NullOutputStream;
-	auto stream = new ProxyStream(null, data_sink);
-	auto ret = new HTTPServerResponse(stream, null, settings, () @trusted { processAllocator(); } ());
+	auto stream = createProxyStream(null, data_sink);
+	auto ret = new HTTPServerResponse(stream, null, settings, () @trusted { return processAllocator(); } ());
 	return ret;
 }
 
@@ -877,8 +877,7 @@ final class HTTPServerResponse : HTTPResponse {
 		IAllocator m_requestAlloc;
 		FreeListRef!ChunkedOutputStream m_chunkedBodyWriter;
 		FreeListRef!CountingOutputStream m_countingWriter;
-		FreeListRef!GzipOutputStream m_gzipOutputStream;
-		FreeListRef!DeflateOutputStream m_deflateOutputStream;
+		FreeListRef!ZlibOutputStream m_zlibOutputStream;
 		HTTPServerSettings m_settings;
 		Session m_session;
 		bool m_headerWritten = false;
@@ -1084,17 +1083,17 @@ final class HTTPServerResponse : HTTPResponse {
 		} else {
 			headers["Transfer-Encoding"] = "chunked";
 			writeHeader();
-			m_chunkedBodyWriter = FreeListRef!ChunkedOutputStream(m_countingWriter);
+			m_chunkedBodyWriter = createChunkedOutputStreamFL(m_countingWriter);
 			m_bodyWriter = m_chunkedBodyWriter;
 		}
 
 		if (auto pce = "Content-Encoding" in headers) {
 			if (icmp2(*pce, "gzip") == 0) {
-				m_gzipOutputStream = FreeListRef!GzipOutputStream(m_bodyWriter);
-				m_bodyWriter = m_gzipOutputStream;
+				m_zlibOutputStream = createGzipOutputStreamFL(m_bodyWriter);
+				m_bodyWriter = m_zlibOutputStream;
 			} else if (icmp2(*pce, "deflate") == 0) {
-				m_deflateOutputStream = FreeListRef!DeflateOutputStream(m_bodyWriter);
-				m_bodyWriter = m_deflateOutputStream;
+				m_zlibOutputStream = createDeflateOutputStreamFL(m_bodyWriter);
+				m_bodyWriter = m_zlibOutputStream;
 			} else {
 				logWarn("Unsupported Content-Encoding set in response: '"~*pce~"'");
 			}
@@ -1293,13 +1292,9 @@ final class HTTPServerResponse : HTTPResponse {
 	*/
 	void finalize()
 	@safe {
-		if (m_gzipOutputStream) {
-			m_gzipOutputStream.finalize();
-			m_gzipOutputStream.destroy();
-		}
-		if (m_deflateOutputStream) {
-			m_deflateOutputStream.finalize();
-			m_deflateOutputStream.destroy();
+		if (m_zlibOutputStream) {
+			m_zlibOutputStream.finalize();
+			m_zlibOutputStream.destroy();
 		}
 		if (m_chunkedBodyWriter) {
 			m_chunkedBodyWriter.finalize();

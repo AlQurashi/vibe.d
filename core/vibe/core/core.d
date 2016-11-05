@@ -755,7 +755,7 @@ void rawYield()
 	used in vibe.d applications.
 */
 void sleep(Duration timeout)
-{
+@safe {
 	assert(timeout >= 0.seconds, "Argument to sleep must not be negative.");
 	if (timeout <= 0.seconds) return;
 	auto tm = setTimer(timeout, null);

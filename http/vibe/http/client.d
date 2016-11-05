@@ -835,8 +835,7 @@ final class HTTPClientResponse : HTTPResponse {
 		LockedConnection!HTTPClient lockedConnection;
 		FreeListRef!LimitedInputStream m_limitedInputStream;
 		FreeListRef!ChunkedInputStream m_chunkedInputStream;
-		FreeListRef!GzipInputStream m_gzipInputStream;
-		FreeListRef!DeflateInputStream m_deflateInputStream;
+		FreeListRef!ZlibInputStream m_zlibInputStream;
 		FreeListRef!EndCallbackInputStream m_endCallback;
 		InputStream m_bodyReader;
 		bool m_closeConn;
@@ -943,11 +942,11 @@ final class HTTPClientResponse : HTTPResponse {
 
 		if( auto pce = "Content-Encoding" in this.headers ){
 			if( *pce == "deflate" ){
-				m_deflateInputStream = FreeListRef!DeflateInputStream(m_bodyReader);
-				m_bodyReader = m_deflateInputStream;
+				m_zlibInputStream = createDeflateInputStreamFL(m_bodyReader);
+				m_bodyReader = m_zlibInputStream;
 			} else if( *pce == "gzip" || *pce == "x-gzip"){
-				m_gzipInputStream = FreeListRef!GzipInputStream(m_bodyReader);
-				m_bodyReader = m_gzipInputStream;
+				m_zlibInputStream = createGzipInputStreamFL(m_bodyReader);
+				m_bodyReader = m_zlibInputStream;
 			}
 			else enforce(*pce == "identity" || *pce == "", "Unsuported content encoding: "~*pce);
 		}
@@ -1082,8 +1081,7 @@ final class HTTPClientResponse : HTTPResponse {
 		auto cli = m_client;
 		m_client = null;
 		cli.m_responding = false;
-		destroy(m_deflateInputStream);
-		destroy(m_gzipInputStream);
+		destroy(m_zlibInputStream);
 		destroy(m_chunkedInputStream);
 		destroy(m_limitedInputStream);
 		if (disconnect) cli.disconnect();

@@ -20,29 +20,53 @@ import vibe.core.log;
 /** Creates a new deflate uncompression stream.
 */
 ZlibInputStream createDeflateInputStream(InputStream source)
-{
+@safe {
 	return new ZlibInputStream(source, ZlibInputStream.HeaderFormat.deflate, true);
+}
+
+/// private
+FreeListRef!ZlibInputStream createDeflateInputStreamFL(InputStream source)
+@safe {
+	return FreeListRef!ZlibInputStream(source, ZlibInputStream.HeaderFormat.deflate, true);
 }
 
 /** Creates a new deflate compression stream.
 */
 ZlibOutputStream createDeflateOutputStream(OutputStream destination)
-{
+@safe {
 	return new ZlibOutputStream(destination, ZlibOutputStream.HeaderFormat.deflate, Z_DEFAULT_COMPRESSION, true);
+}
+
+/// private
+FreeListRef!ZlibOutputStream createDeflateOutputStreamFL(OutputStream destination)
+@safe {
+	return FreeListRef!ZlibOutputStream(destination, ZlibOutputStream.HeaderFormat.deflate, Z_DEFAULT_COMPRESSION, true);
 }
 
 /** Creates a new deflate uncompression stream.
 */
 ZlibInputStream createGzipInputStream(InputStream source)
-{
+@safe {
 	return new ZlibInputStream(source, ZlibInputStream.HeaderFormat.gzip, true);
+}
+
+/// private
+FreeListRef!ZlibInputStream createGzipInputStreamFL(InputStream source)
+@safe {
+	return FreeListRef!ZlibInputStream(source, ZlibInputStream.HeaderFormat.gzip, true);
 }
 
 /** Creates a new deflate uncompression stream.
 */
 ZlibOutputStream createGzipOutputStream(OutputStream destination)
-{
+@safe {
 	return new ZlibOutputStream(destination, ZlibOutputStream.HeaderFormat.gzip, Z_DEFAULT_COMPRESSION, true);
+}
+
+/// private
+FreeListRef!ZlibOutputStream createGzipOutputStreamFL(OutputStream destination)
+@safe {
+	return FreeListRef!ZlibOutputStream(destination, ZlibOutputStream.HeaderFormat.gzip, Z_DEFAULT_COMPRESSION, true);
 }
 
 
@@ -313,7 +337,7 @@ class ZlibInputStream : InputStream {
 		assert(m_outbuffer.peekDst().length > 0);
 		enforce (!m_finished, "Reading past end of zlib stream.");
 
-		m_zstream.next_out = m_outbuffer.peekDst().ptr;
+		m_zstream.next_out = &m_outbuffer.peekDst()[0];
 		m_zstream.avail_out = cast(uint)m_outbuffer.peekDst().length;
 
 		while (!m_outbuffer.length) {
@@ -324,7 +348,7 @@ class ZlibInputStream : InputStream {
 					throw new Exception("Premature end of compressed input.");
 				}
 				m_in.read(m_inbuffer[0 .. clen]);
-				m_zstream.next_in = m_inbuffer.ptr;
+				m_zstream.next_in = &m_inbuffer[0];
 				m_zstream.avail_in = cast(uint)clen;
 			}
 			auto avins = m_zstream.avail_in;

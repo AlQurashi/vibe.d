@@ -260,7 +260,7 @@ ubyte[] readAll(InputStream)(InputStream stream, size_t max_bytes = size_t.max, 
 		a UTFException is thrown.
 */
 string readAllUTF8(InputStream)(InputStream stream, bool sanitize = false, size_t max_bytes = size_t.max)
-@safe 	if (isInputStream!InputStream)
+ 	if (isInputStream!InputStream)
 {
 	import std.utf;
 	import vibe.utils.string;

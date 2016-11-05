@@ -718,8 +718,8 @@ final class RedisSubscriberImpl {
 		if (!m_listening)
 			return;
 
-		void impl() {
-			m_mutex.performLocked!(() {
+		void impl() @safe {
+			m_mutex.performLocked!({
 				m_stop = true;
 				() @trusted { m_listener.send(Action.STOP); } ();
 				// send a message to wake up the listenerHelper from the reply
