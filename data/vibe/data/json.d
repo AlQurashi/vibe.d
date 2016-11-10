@@ -685,31 +685,31 @@ struct Json {
 		} else static if( op == "+" ){
 			checkType!(BigInt, long, double)(op);
 			if( m_type == Type.int_ ) return Json(m_int + other.m_int);
-			else if( m_type == Type.bigInt ) return Json(m_bigInt + other.m_bigInt);
+			else if( m_type == Type.bigInt ) return Json(() @trusted { return m_bigInt + other.m_bigInt; } ());
 			else if( m_type == Type.float_ ) return Json(m_float + other.m_float);
 			else assert(false);
 		} else static if( op == "-" ){
 			checkType!(BigInt, long, double)(op);
 			if( m_type == Type.int_ ) return Json(m_int - other.m_int);
-			else if( m_type == Type.bigInt ) return Json(m_bigInt - other.m_bigInt);
+			else if( m_type == Type.bigInt ) return Json(() @trusted { return m_bigInt - other.m_bigInt; } ());
 			else if( m_type == Type.float_ ) return Json(m_float - other.m_float);
 			else assert(false);
 		} else static if( op == "*" ){
 			checkType!(BigInt, long, double)(op);
 			if( m_type == Type.int_ ) return Json(m_int * other.m_int);
-			else if( m_type == Type.bigInt ) return Json(m_bigInt * other.m_bigInt);
+			else if( m_type == Type.bigInt ) return Json(() @trusted { return m_bigInt * other.m_bigInt; } ());
 			else if( m_type == Type.float_ ) return Json(m_float * other.m_float);
 			else assert(false);
 		} else static if( op == "/" ){
 			checkType!(BigInt, long, double)(op);
 			if( m_type == Type.int_ ) return Json(m_int / other.m_int);
-			else if( m_type == Type.bigInt ) return Json(m_bigInt / other.m_bigInt);
+			else if( m_type == Type.bigInt ) return Json(() @trusted { return m_bigInt / other.m_bigInt; } ());
 			else if( m_type == Type.float_ ) return Json(m_float / other.m_float);
 			else assert(false);
 		} else static if( op == "%" ){
 			checkType!(BigInt, long, double)(op);
 			if( m_type == Type.int_ ) return Json(m_int % other.m_int);
-			else if( m_type == Type.bigInt ) return Json(m_bigInt % other.m_bigInt);
+			else if( m_type == Type.bigInt ) return Json(() @trusted { return m_bigInt % other.m_bigInt; } ());
 			else if( m_type == Type.float_ ) return Json(m_float % other.m_float);
 			else assert(false);
 		} else static if( op == "~" ){
