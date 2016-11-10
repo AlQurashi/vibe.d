@@ -234,7 +234,7 @@ ubyte[] readAll(InputStream)(InputStream stream, size_t max_bytes = size_t.max, 
 	scope (exit) () @trusted { delete buffer; } ();
 	size_t n = 0;
 	while (!stream.empty) {
-		size_t chunk = stream.leastSize;
+		size_t chunk = min(stream.leastSize, size_t.max);
 		n += chunk;
 		enforce(!max_bytes || n <= max_bytes, "Input data too long!");
 		dst.reserve(chunk);
