@@ -16,6 +16,7 @@ import vibe.stream.operations;
 import vibe.textfilter.urlencode : urlEncode, urlDecode;
 import vibe.utils.array;
 import vibe.internal.allocator;
+import vibe.internal.freelistref;
 import vibe.utils.string;
 
 import std.algorithm;
@@ -472,13 +473,13 @@ final class ChunkedOutputStream : OutputStream {
 	}
 
 	deprecated("Use createChunkedOutputStream() instead.")
-	this(OutputStream stream, Allocator alloc = theAllocator())
+	this(OutputStream stream, IAllocator alloc = theAllocator())
 	{
 		this(stream, alloc, true);
 	}
 
 	/// private
-	this(OutputStream stream, Allocator alloc, bool dummy)
+	this(OutputStream stream, IAllocator alloc, bool dummy)
 	{
 		m_out = stream;
 		m_buffer = AllocAppender!(ubyte[])(alloc);
@@ -510,7 +511,7 @@ final class ChunkedOutputStream : OutputStream {
 	/// ditto
 	@property void chunkExtensionCallback(ChunkExtensionCallback cb) { m_chunkExtensionCallback = cb; }
 
-	private void append(scope void delegate(scope ubyte[] dst) del, size_t nbytes)
+	private void append(scope void delegate(scope ubyte[] dst) @safe del, size_t nbytes)
 	{
 		assert(del !is null);
 		auto sz = nbytes;
@@ -610,14 +611,14 @@ final class ChunkedOutputStream : OutputStream {
 }
 
 /// Creates a new `ChunkedInputStream` instance.
-ChunkedOutputStream createChunkedOutputStream(OS)(OS destination_stream, Allocator allocator = defaultAllocator()) if (isOutputStream!OS)
+ChunkedOutputStream createChunkedOutputStream(OS)(OS destination_stream, IAllocator allocator = theAllocator()) if (isOutputStream!OS)
 {
 	import vibe.internal.interfaceproxy : asInterface;
 	return new ChunkedOutputStream(destination_stream.asInterface!OutputStream, allocator, true);
 }
 
 /// Creates a new `ChunkedOutputStream` instance.
-FreeListRef!ChunkedOutputStream createChunkedOutputStreamFL(OS)(OS destination_stream, Allocator allocator = defaultAllocator()) if (isOutputStream!OS)
+FreeListRef!ChunkedOutputStream createChunkedOutputStreamFL(OS)(OS destination_stream, IAllocator allocator = theAllocator()) if (isOutputStream!OS)
 {
 	import vibe.internal.interfaceproxy : asInterface;
 	return FreeListRef!ChunkedOutputStream(destination_stream.asInterface!OutputStream, allocator, true);

@@ -9,6 +9,7 @@ module vibe.stream.zlib;
 
 import vibe.core.stream;
 import vibe.utils.array;
+import vibe.internal.freelistref;
 
 import std.algorithm;
 import std.exception;
@@ -228,7 +229,7 @@ unittest {
 		0x78, 0x74, 0x00, 0xF3, 0x48, 0xCD, 0xC9, 0xC9, 0xD7, 0x51, 0x08, 0xCF, 0x2F, 0xCA, 0x49, 0x51,
 		0xE4, 0x02, 0x00, 0x84, 0x9E, 0xE8, 0xB4, 0x0E, 0x00, 0x00, 0x00];
 
-	auto gzipin = new GzipInputStream(new MemoryStream(gzip));
+	auto gzipin = createGzipInputStream(createMemoryStream(gzip));
 	assert(gzipin.readAll() == raw);
 }
 
@@ -241,7 +242,7 @@ unittest {
 		0x78, 0x74, 0x00, 0xF3, 0x48, 0xCD, 0xC9, 0xC9, 0xD7, 0x51, 0x08, 0xCF, 0x2F, 0xCA, 0x49, 0x51,
 	];
 
-	auto gzipin = new GzipInputStream(new MemoryStream(gzip_partial));
+	auto gzipin = createGzipInputStream(createMemoryStream(gzip_partial));
 	try {
 		gzipin.readAll();
 		assert(false, "Expected exception.");
@@ -376,13 +377,13 @@ unittest {
 
 	auto data = new ubyte[5000];
 
-	auto mos = new MemoryOutputStream();
-	auto gos = new GzipOutputStream(mos);
+	auto mos = createMemoryOutputStream();
+	auto gos = createGzipOutputStream(mos);
 	gos.write(data);
 	gos.finalize();
 
-	auto ms = new MemoryStream(mos.data, false);
-	auto gis = new GzipInputStream(ms);
+	auto ms = createMemoryStream(mos.data, false);
+	auto gis = createGzipInputStream(ms);
 
 	auto result = new ubyte[data.length];
 	gis.read(result);

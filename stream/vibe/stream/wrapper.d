@@ -13,7 +13,7 @@ import std.algorithm : min;
 import std.exception;
 import core.time;
 import vibe.internal.interfaceproxy;
-import vibe.internal.memory : FreeListRef;
+import vibe.internal.freelistref : FreeListRef;
 
 
 ProxyStream createProxyStream(Stream)(Stream stream)
@@ -349,7 +349,7 @@ auto streamOutputRange(OutputStream)(OutputStream stream)
 unittest {
 	static long writeLength(ARGS...)(ARGS args) {
 		import vibe.stream.memory;
-		auto dst = new MemoryOutputStream;
+		auto dst = createMemoryOutputStream;
 		{
 			auto rng = StreamOutputRange(dst);
 			foreach (a; args) rng.put(a);

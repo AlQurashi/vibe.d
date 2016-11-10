@@ -43,6 +43,7 @@ struct DefaultHashMapTraits(Key) {
 
 struct HashMap(TKey, TValue, Traits = DefaultHashMapTraits!TKey)
 {
+	import core.memory : GC;
 	import vibe.internal.meta.traits : isOpApplyDg;
 
 	alias Key = TKey;
@@ -70,6 +71,7 @@ struct HashMap(TKey, TValue, Traits = DefaultHashMapTraits!TKey)
 	{
 		clear();
 		if (m_table.ptr !is null) () @trusted {
+			static if (hasIndirections!TableEntry) GC.removeRange(m_table.ptr);
 			try m_allocator.dispose(m_table);
 			catch (Exception e) assert(false, e.msg);
 		} ();
@@ -211,8 +213,6 @@ struct HashMap(TKey, TValue, Traits = DefaultHashMapTraits!TKey)
 
 	private void resize(size_t new_size)
 	@trusted {
-		import core.memory : GC;
-
 		assert(!m_resizing);
 		m_resizing = true;
 		scope(exit) m_resizing = false;

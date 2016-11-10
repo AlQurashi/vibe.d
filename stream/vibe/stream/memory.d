@@ -16,7 +16,7 @@ import std.array;
 import std.exception;
 import std.typecons;
 
-MemoryOutputStream createMemoryOutputStream(Allocator alloc = defaultAllocator())
+MemoryOutputStream createMemoryOutputStream(IAllocator alloc = processAllocator())
 {
 	return new MemoryOutputStream(alloc, true);
 }
@@ -49,7 +49,7 @@ final class MemoryOutputStream : OutputStream {
 	}
 
 	/// private
-	this(Allocator alloc, bool dummy)
+	this(IAllocator alloc, bool dummy)
 	{
 		m_destination = AllocAppender!(ubyte[])(alloc);
 	}
