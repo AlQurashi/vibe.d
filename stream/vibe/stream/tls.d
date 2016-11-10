@@ -62,10 +62,15 @@ unittest {
 		auto sslctx = createTLSContext(TLSContextKind.server);
 		sslctx.useCertificateChainFile("server.crt");
 		sslctx.usePrivateKeyFile("server.key");
-		listenTCP(1234, (conn) @safe {
-			auto stream = createTLSStream(conn, sslctx);
-			logInfo("Got message: %s", stream.readAllUTF8());
-			stream.finalize();
+		listenTCP(1234, delegate void(TCPConnection conn) nothrow {
+			try {
+				auto stream = createTLSStream(conn, sslctx);
+				logInfo("Got message: %s", stream.readAllUTF8());
+				stream.finalize();
+			} catch (Exception e) {
+				logInfo("Failed to receive encrypted message");
+				conn.close();
+			}
 		});
 	}
 }
