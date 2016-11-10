@@ -1101,7 +1101,7 @@ struct Future(T) {
 	{
 		if (!ready) m_task.join();
 		assert(ready, "Task still running after join()!?");
-		return *cast(T*)m_result.get(); // casting away shared is safe, because this is a unique reference
+		return *cast(T*)&m_result.get(); // casting away shared is safe, because this is a unique reference
 	}
 
 	alias getResult this;

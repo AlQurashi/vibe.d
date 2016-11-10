@@ -70,7 +70,7 @@ import std.traits;
 
 */
 URLRouter registerRestInterface(TImpl)(URLRouter router, TImpl instance, RestInterfaceSettings settings = null)
-{
+@safe {
 	import std.algorithm : filter, map, all;
 	import std.array : array;
 	import std.range : front;
@@ -141,11 +141,12 @@ URLRouter registerRestInterface(TImpl)(URLRouter router, TImpl instance, string 
 
 	All details related to HTTP are inferred from the interface declaration.
 */
-unittest
+@safe unittest
 {
 	@path("/")
 	interface IMyAPI
 	{
+		@safe:
 		// GET /api/greeting
 		@property string greeting();
 
@@ -520,7 +521,7 @@ class RestInterfaceSettings {
 	HTTPClientSettings httpClientSettings;
 
 	@property RestInterfaceSettings dup()
-	const {
+	const @safe 	{
 		auto ret = new RestInterfaceSettings;
 		ret.baseURL = this.baseURL;
 		ret.methodStyle = this.methodStyle;
@@ -1841,7 +1842,8 @@ unittest {
 	// parameter, so we don't need to check it here.
 }
 
-private string stripTestIdent(string msg) {
+private string stripTestIdent(string msg)
+@safe {
 	import std.string;
 	auto idx = msg.indexOf(": ");
 	return idx >= 0 ? msg[idx+2 .. $] : msg;
@@ -1849,7 +1851,7 @@ private string stripTestIdent(string msg) {
 
 // Small helper for client code generation
 private string paramCTMap(string[string] params)
-{
+@safe {
 	import std.array : appender, join;
 	if (!__ctfe)
 		assert (false, "This helper is only supposed to be called for codegen in RestClientInterface.");
@@ -1861,7 +1863,8 @@ private string paramCTMap(string[string] params)
 	return app.data.join(", ");
 }
 
-package string stripTUnderscore(string name, RestInterfaceSettings settings) {
+package string stripTUnderscore(string name, RestInterfaceSettings settings)
+@safe {
 	if ((settings is null || settings.stripTrailingUnderscore)
 	    && name.endsWith("_"))
 		return name[0 .. $-1];

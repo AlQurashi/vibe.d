@@ -1385,7 +1385,7 @@ T deserializeJson(T, R)(R input)
 }
 
 ///
-unittest {
+@safe unittest {
 	struct Foo {
 		int number;
 		string str;
@@ -1395,7 +1395,7 @@ unittest {
 	assert(f.str == "hello");
 }
 
-unittest {
+@safe unittest {
 	import std.stdio;
 	enum Foo : string { k = "test" }
 	enum Boo : int { l = 5 }
@@ -1417,7 +1417,7 @@ unittest {
 	assert(t.l == u.l);
 }
 
-unittest
+@safe unittest
 {
 	assert(uint.max == serializeToJson(uint.max).deserializeJson!uint);
 	assert(ulong.max == serializeToJson(ulong.max).deserializeJson!ulong);
@@ -1573,14 +1573,14 @@ struct JsonSerializer {
 		Json[] m_compositeStack;
 	}
 
-	this(Json data) { m_current = data; }
+	this(Json data) @safe { m_current = data; }
 
 	@disable this(this);
 
 	//
 	// serialization
 	//
-	Json getSerializedResult() { return m_current; }
+	Json getSerializedResult() @safe { return m_current; }
 	void beginWriteDictionary(Traits)() { m_compositeStack ~= Json.emptyObject; }
 	void endWriteDictionary(Traits)() { m_current = m_compositeStack[$-1]; m_compositeStack.length--; }
 	void beginWriteDictionaryEntry(Traits)(string name) {}
@@ -1711,7 +1711,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 			static if (is(T == typeof(null))) m_range.put("null");
 			else static if (is(T == bool)) m_range.put(value ? "true" : "false");
 			else static if (is(T : long)) m_range.formattedWrite("%s", value);
-			else static if (is(T == BigInt)) m_range.formattedWrite("%d", value);
+			else static if (is(T == BigInt)) () @trusted { m_range.formattedWrite("%d", value); } ();
 			else static if (is(T : real)) value == value ? m_range.formattedWrite("%.16g", value) : m_range.put("null");
 			else static if (is(T == string)) {
 				m_range.put('"');
@@ -1888,12 +1888,12 @@ unittest
 	See_Also: Json.toString, writePrettyJsonString
 */
 void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t level = 0)
-//	if( isOutputRange!R && is(ElementEncodingType!R == char) )
+@safe //	if( isOutputRange!R && is(ElementEncodingType!R == char) )
 {
 	final switch( json.type ){
 		case Json.Type.undefined: dst.put("undefined"); break;
 		case Json.Type.null_: dst.put("null"); break;
-		case Json.Type.bool_: dst.put(cast(bool)json ? "true" : "false"); break;
+		case Json.Type.bool_: dst.put(json.get!bool ? "true" : "false"); break;
 		case Json.Type.int_: formattedWrite(dst, "%d", json.get!long); break;
 		case Json.Type.bigInt: () @trusted { formattedWrite(dst, "%d", json.get!BigInt); } (); break;
 		case Json.Type.float_:
@@ -1905,7 +1905,7 @@ void writeJsonString(R, bool pretty = false)(ref R dst, in Json json, size_t lev
 			break;
 		case Json.Type.string:
 			dst.put('\"');
-			jsonEscape(dst, cast(string)json);
+			jsonEscape(dst, json.get!string);
 			dst.put('\"');
 			break;
 		case Json.Type.array:
@@ -2067,15 +2067,12 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 					if (ch > 0x20 && ch < 0x80) dst.put(ch);
 					else {
 						import std.utf : decode;
-						char[13] buf;
 						int len;
 						dchar codepoint = decode(s, pos);
-						import std.c.stdio : sprintf;
 						/* codepoint is in BMP */
 						if(codepoint < 0x10000)
 						{
-							sprintf(&buf[0], "\\u%04X", codepoint);
-							len = 6;
+							dst.formattedWrite("\\u%04X", codepoint);
 						}
 						/* not in BMP -> construct a UTF-16 surrogate pair */
 						else
@@ -2086,13 +2083,10 @@ private void jsonEscape(bool escape_unicode = false, R)(ref R dst, string s)
 							first = 0xD800 | ((codepoint & 0xffc00) >> 10);
 							last = 0xDC00 | (codepoint & 0x003ff);
 
-							sprintf(&buf[0], "\\u%04X\\u%04X", first, last);
-							len = 12;
+							dst.formattedWrite("\\u%04X\\u%04X", first, last);
 						}
 
 						pos -= 1;
-						foreach (i; 0 .. len)
-							dst.put(buf[i]);
 
 					}
 				} else {
