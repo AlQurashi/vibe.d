@@ -182,7 +182,7 @@ URLRouter registerWebInterface(C : Object, MethodStyle method_style = MethodStyl
 					registerWebInterface!RT(router, __traits(getMember, instance, M)(), subsettings);
 				} else {
 					auto fullurl = concatURL(url_prefix, url);
-					router.match(minfo.method, fullurl, (req, res) @trusted {
+					router.match(minfo.method, fullurl, (HTTPServerRequest req, HTTPServerResponse res) @trusted {
 						handleRequest!(M, overload)(req, res, instance, settings);
 					});
 					if (settings.ignoreTrailingSlash && !fullurl.endsWith("*") && fullurl != "/") {

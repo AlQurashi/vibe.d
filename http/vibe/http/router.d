@@ -122,112 +122,42 @@ final class URLRouter : HTTPServerRequestHandler {
 	}
 
 	/// Adds a new route for requests matching the specified HTTP method and pattern.
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestDelegate cb)
-	in { assert(path.length, "Cannot register null or empty path!"); }
-	body {
+	URLRouter match(Handler)(HTTPMethod method, string path, Handler handler)
+		if (isValidHandler!Handler)
+	{
 		import std.algorithm;
+		assert(path.length, "Cannot register null or empty path!");
 		assert(count(path, ':') <= maxRouteParameters, "Too many route parameters");
 		logDebug("add route %s %s", method, path);
-		m_routes.addTerminal(path, Route(method, path, cb));
+		m_routes.addTerminal(path, Route(method, path, handlerDelegate(handler)));
 		return this;
 	}
-	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestHandler cb) { return match(method, path, &cb.handleRequest); }
-	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestFunction cb) { return match(method, path, () @trusted { return toDelegate(cb); } ()); }
-	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestDelegateS cb) { return match(method, path, cast(HTTPServerRequestDelegate)cb); }
-	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestHandlerS cb) { return match(method, path, &cb.handleRequest); }
-	/// ditto
-	URLRouter match(HTTPMethod method, string path, HTTPServerRequestFunctionS cb) { return match(method, path, () @trusted { return toDelegate(cb); } ()); }
 
 	/// Adds a new route for GET requests matching the specified pattern.
-	URLRouter get(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.GET, url_match, cb); }
-	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.GET, url_match, cb); }
-	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.GET, url_match, cb); }
-	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.GET, url_match, cb); }
-	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.GET, url_match, cb); }
-	/// ditto
-	URLRouter get(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.GET, url_match, cb); }
+	URLRouter get(Handler)(string url_match, Handler handler) if (isValidHandler!Handler) { return match(HTTPMethod.GET, url_match, handler); }
 
 	/// Adds a new route for POST requests matching the specified pattern.
-	URLRouter post(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.POST, url_match, cb); }
-	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.POST, url_match, cb); }
-	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.POST, url_match, cb); }
-	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.POST, url_match, cb); }
-	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.POST, url_match, cb); }
-	/// ditto
-	URLRouter post(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.POST, url_match, cb); }
+	URLRouter post(Handler)(string url_match, Handler handler) if (isValidHandler!Handler) { return match(HTTPMethod.POST, url_match, handler); }
 
 	/// Adds a new route for PUT requests matching the specified pattern.
-	URLRouter put(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.PUT, url_match, cb); }
-	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.PUT, url_match, cb); }
-	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.PUT, url_match, cb); }
-	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.PUT, url_match, cb); }
-	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.PUT, url_match, cb); }
-	/// ditto
-	URLRouter put(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.PUT, url_match, cb); }
+	URLRouter put(Handler)(string url_match, Handler handler) if (isValidHandler!Handler) { return match(HTTPMethod.PUT, url_match, handler); }
 
 	/// Adds a new route for DELETE requests matching the specified pattern.
-	URLRouter delete_(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.DELETE, url_match, cb); }
-	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.DELETE, url_match, cb); }
-	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.DELETE, url_match, cb); }
-	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.DELETE, url_match, cb); }
-	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.DELETE, url_match, cb); }
-	/// ditto
-	URLRouter delete_(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.DELETE, url_match, cb); }
+	URLRouter delete_(Handler)(string url_match, Handler handler) if (isValidHandler!Handler) { return match(HTTPMethod.DELETE, url_match, handler); }
 
 	/// Adds a new route for PATCH requests matching the specified pattern.
-	URLRouter patch(string url_match, HTTPServerRequestHandler cb) { return match(HTTPMethod.PATCH, url_match, cb); }
-	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestFunction cb) { return match(HTTPMethod.PATCH, url_match, cb); }
-	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestDelegate cb) { return match(HTTPMethod.PATCH, url_match, cb); }
-	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestHandlerS cb) { return match(HTTPMethod.PATCH, url_match, cb); }
-	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestFunctionS cb) { return match(HTTPMethod.PATCH, url_match, cb); }
-	/// ditto
-	URLRouter patch(string url_match, HTTPServerRequestDelegateS cb) { return match(HTTPMethod.PATCH, url_match, cb); }
+	URLRouter patch(Handler)(string url_match, Handler handler) if (isValidHandler!Handler) { return match(HTTPMethod.PATCH, url_match, handler); }
 
 	/// Adds a new route for requests matching the specified pattern, regardless of their HTTP verb.
-	URLRouter any(string url_match, HTTPServerRequestHandler cb) { return any(url_match, &cb.handleRequest); }
-	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestFunction cb) { return any(url_match, () @trusted { return toDelegate(cb); } ()); }
-	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestDelegate cb)
+	URLRouter any(Handler)(string url_match, Handler handler)
 	{
 		import std.traits;
 		static HTTPMethod[] all_methods = [EnumMembers!HTTPMethod];
-
 		foreach(immutable method; all_methods)
-			match(method, url_match, cb);
+			match(method, url_match, handler);
 
 		return this;
 	}
-	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestHandlerS cb) { return any(url_match, &cb.handleRequest); }
-	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestFunctionS cb) { return any(url_match, () @trusted { return toDelegate(cb); } ()); }
-	/// ditto
-	URLRouter any(string url_match, HTTPServerRequestDelegateS cb) { return any(url_match, cast(HTTPServerRequestDelegate)cb); }
 
 
 	/** Rebuilds the internal matching structures to account for newly added routes.
@@ -286,6 +216,60 @@ final class URLRouter : HTTPServerRequestHandler {
 		foreach (i, ref r; routes)
 			r = m_routes.getTerminalData(i);
 		return routes;
+	}
+
+	template isValidHandler(Handler) {
+		static if (
+				is(Handler : HTTPServerRequestDelegate) ||
+				is(Handler : HTTPServerRequestFunction) ||
+				is(Handler : HTTPServerRequestHandler) ||
+				is(Handler : HTTPServerRequestDelegateS) ||
+				is(Handler : HTTPServerRequestFunctionS) ||
+				is(Handler : HTTPServerRequestHandlerS)
+			)
+		{
+			enum isValidHandler = true;
+		} else static if (
+				is(Handler : void delegate(HTTPServerRequest, HTTPServerResponse) @system) ||
+				is(Handler : void function(HTTPServerRequest, HTTPServerResponse) @system) ||
+				is(Handler : void delegate(scope HTTPServerRequest, scope HTTPServerResponse) @system) ||
+				is(Handler : void function(scope HTTPServerRequest, scope HTTPServerResponse) @system)
+			)
+		{
+			enum isValidHandler = true;
+		} else {
+			enum isValidHandler = false;
+		}
+	}
+
+	static void delegate(HTTPServerRequest, HTTPServerResponse) @safe handlerDelegate(Handler)(Handler handler)
+	{
+		import std.traits : isFunctionPointer;
+		static if (isFunctionPointer!Handler) return handlerDelegate(() @trusted { return toDelegate(handler); } ());
+		else static if (is(Handler == class) || is(Handler == interface)) return &handler.handleRequest;
+		else static if (__traits(compiles, () @safe { handler(null, null); } ())) return handler;
+		else return (req, res) @trusted { handler(req, res); };
+	}
+
+	unittest {
+		static assert(isValidHandler!HTTPServerRequestFunction);
+		static assert(isValidHandler!HTTPServerRequestDelegate);
+		static assert(isValidHandler!HTTPServerRequestHandler);
+		static assert(isValidHandler!HTTPServerRequestFunctionS);
+		static assert(isValidHandler!HTTPServerRequestDelegateS);
+		static assert(isValidHandler!HTTPServerRequestHandlerS);
+		static assert(isValidHandler!(void delegate(HTTPServerRequest req, HTTPServerResponse res) @system));
+		static assert(isValidHandler!(void function(HTTPServerRequest req, HTTPServerResponse res) @system));
+		static assert(isValidHandler!(void delegate(scope HTTPServerRequest req, scope HTTPServerResponse res) @system));
+		static assert(isValidHandler!(void function(scope HTTPServerRequest req, scope HTTPServerResponse res) @system));
+		static assert(!isValidHandler!(int delegate(HTTPServerRequest req, HTTPServerResponse res) @system));
+		static assert(!isValidHandler!(int delegate(HTTPServerRequest req, HTTPServerResponse res) @safe));
+		void test(H)(H h)
+		{
+			pragma(msg, H);
+			static assert(isValidHandler!H);
+		}
+		test((HTTPServerRequest req, HTTPServerResponse res) {});
 	}
 }
 

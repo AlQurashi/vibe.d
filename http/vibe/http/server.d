@@ -520,7 +520,16 @@ final class HTTPServerSettings {
 	ulong maxRequestHeaderSize = 8192;
 
 	/// Sets a custom handler for displaying error pages for HTTP errors
-	HTTPServerErrorPageHandler errorPageHandler = null;
+	@property HTTPServerErrorPageHandler errorPageHandler() @safe { return errorPageHandler_; }
+	/// ditto
+	@property void errorPageHandler(HTTPServerErrorPageHandler del) @safe { errorPageHandler_ = del; }
+	/// ditto
+	deprecated("Use an @safe error handler instead.")
+	@property void errorPageHandler(void delegate(HTTPServerRequest, HTTPServerResponse, HTTPServerErrorInfo) @system del) @safe {
+		this.errorPageHandler = (req, res, err) @trusted { del(req, res, err); };
+	}
+
+	private HTTPServerErrorPageHandler errorPageHandler_ = null;
 
 	/// If set, a HTTPS server will be started instead of plain HTTP.
 	TLSContext tlsContext;
@@ -1769,7 +1778,7 @@ private bool handleRequest(InterfaceProxy!Stream http_stream, TCPConnection tcp_
 			err.message = msg;
 			err.debugMessage = debug_msg;
 			err.exception = ex;
-			settings.errorPageHandler(req, res, err);
+			settings.errorPageHandler_(req, res, err);
 		} else {
 			if (debug_msg.length)
 				res.writeBody(format("%s - %s\n\n%s\n\nInternal error information:\n%s", code, httpStatusText(code), msg, debug_msg));
