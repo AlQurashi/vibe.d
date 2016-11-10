@@ -65,7 +65,7 @@ class DigestAuthInfo
 	}
 }
 
-private bool checkDigest(scope HTTPServerRequest req, DigestAuthInfo info, scope string delegate(string realm, string user) @safe pwhash, out bool stale, out string username)
+private bool checkDigest(scope HTTPServerRequest req, DigestAuthInfo info, scope DigestHashCallback pwhash, out bool stale, out string username)
 {
 	stale = false;
 	username = "";
@@ -109,7 +109,7 @@ private bool checkDigest(scope HTTPServerRequest req, DigestAuthInfo info, scope
 /**
 	Returns a request handler that enforces request to be authenticated using HTTP Digest Auth.
 */
-HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string delegate(string realm, string user) @safe pwhash)
+HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope DigestHashCallback pwhash)
 {
 	void handleRequest(HTTPServerRequest req, HTTPServerResponse res)
 	@safe {
@@ -128,6 +128,12 @@ HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string de
 	}
 	return &handleRequest;
 }
+/// ditto
+deprecated("Use an @safe password hash callback.")
+HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string delegate(string, string) @system pwhash)
+{
+	return performDigestAuth(info, (r, u) @trusted => pwhash(r, u));
+}
 
 /**
 	Enforces HTTP Digest Auth authentication on the given req/res pair.
@@ -142,7 +148,7 @@ HTTPServerRequestDelegate performDigestAuth(DigestAuthInfo info, scope string de
 
 	Throws: Throws a HTTPStatusExeption in case of an authentication failure.
 */
-string performDigestAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, DigestAuthInfo info, scope string delegate(string realm, string user) @safe pwhash)
+string performDigestAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, DigestAuthInfo info, scope DigestHashCallback pwhash)
 {
 	bool stale;
 	string username;
@@ -151,6 +157,12 @@ string performDigestAuth(scope HTTPServerRequest req, scope HTTPServerResponse r
 
 	res.headers["WWW-Authenticate"] = "Digest realm=\""~info.realm~"\", nonce=\""~info.createNonce(req)~"\", stale="~(stale?"true":"false");
 	throw new HTTPStatusException(HTTPStatus.unauthorized);
+}
+/// ditto
+deprecated("Use an @safe password hash callback.")
+string performDigestAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, DigestAuthInfo info, scope string delegate(string, string) @system pwhash)
+{
+	return performDigestAuth(req, res, info, (r, u) @trusted => pwhash(r, u));
 }
 
 /**
@@ -167,3 +179,5 @@ string createDigestPassword(string realm, string user, string password)
 {
 	return toHexString!(LetterCase.lower)(md5Of(user ~ ":" ~ realm ~ ":" ~ password)).dup;
 }
+
+alias DigestHashCallback = string delegate(string realm, string user);

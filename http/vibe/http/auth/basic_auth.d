@@ -20,7 +20,7 @@ import std.string;
 /**
 	Returns a request handler that enforces request to be authenticated using HTTP Basic Auth.
 */
-HTTPServerRequestDelegateS performBasicAuth(string realm, bool delegate(string user, string name) @safe pwcheck)
+HTTPServerRequestDelegateS performBasicAuth(string realm, PasswordVerifyCallback pwcheck)
 {
 	void handleRequest(scope HTTPServerRequest req, scope HTTPServerResponse res)
 	@safe {
@@ -49,6 +49,12 @@ HTTPServerRequestDelegateS performBasicAuth(string realm, bool delegate(string u
 	}
 	return &handleRequest;
 }
+/// ditto
+deprecated("Use an @safe password verification callback.")
+HTTPServerRequestDelegateS performBasicAuth(string realm, bool delegate(string, string) @system pwcheck)
+{
+	return performBasicAuth(realm, (u, p) @trusted => pwcheck(u, p));
+}
 
 
 /**
@@ -64,7 +70,7 @@ HTTPServerRequestDelegateS performBasicAuth(string realm, bool delegate(string u
 
 	Throws: Throws a HTTPStatusExeption in case of an authentication failure.
 */
-string performBasicAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, string realm, scope bool delegate(string user, string name) @safe pwcheck)
+string performBasicAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, string realm, scope PasswordVerifyCallback pwcheck)
 {
 	auto pauth = "Authorization" in req.headers;
 	if( pauth && (*pauth).startsWith("Basic ") ){
@@ -84,6 +90,12 @@ string performBasicAuth(scope HTTPServerRequest req, scope HTTPServerResponse re
 	res.headers["WWW-Authenticate"] = "Basic realm=\""~realm~"\"";
 	throw new HTTPStatusException(HTTPStatus.unauthorized);
 }
+/// ditto
+deprecated("Use an @safe password verification callback.")
+string performBasicAuth(scope HTTPServerRequest req, scope HTTPServerResponse res, string realm, scope bool delegate(string, string) @system pwcheck)
+{
+	return performBasicAuth(req, res, realm, (u, p) @trusted => pwcheck(u, p));
+}
 
 
 /**
@@ -95,3 +107,5 @@ void addBasicAuth(scope HTTPRequest req, string user, string password)
 	string authstr = () @trusted { return cast(string)Base64.encode(cast(ubyte[])pwstr); } ();
 	req.headers["Authorization"] = "Basic " ~ authstr;
 }
+
+alias PasswordVerifyCallback = bool delegate(string user, string password);
