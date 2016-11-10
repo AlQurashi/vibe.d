@@ -988,7 +988,7 @@ private struct ReadWriteMutexState(bool INTERRUPTIBLE)
                     m_waitingForReadLock, m_waitingForWriteLock
                     );
             }
-            catch (Throwable t){}
+            catch (Exception t){}
         }
     }
     
