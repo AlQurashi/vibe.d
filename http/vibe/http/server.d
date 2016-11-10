@@ -130,7 +130,30 @@ HTTPListener listenHTTP(HTTPServerSettings settings, HTTPServerRequestHandlerS r
 @safe {
 	return listenHTTP(settings, &request_handler.handleRequest);
 }
-
+/// ditto
+deprecated("Use an @safe request handler.")
+HTTPListener listenHTTP(HTTPServerSettings settings, void delegate(HTTPServerRequest, HTTPServerResponse) @system request_handler)
+@safe {
+	return listenHTTP(settings, (req, res) @trusted => request_handler(req, res));
+}
+/// ditto
+deprecated("Use an @safe request handler.")
+HTTPListener listenHTTP(HTTPServerSettings settings, void function(HTTPServerRequest, HTTPServerResponse) @system request_handler)
+@safe {
+	return listenHTTP(settings, (req, res) @trusted => request_handler(req, res));
+}
+/// ditto
+deprecated("Use an @safe request handler.")
+HTTPListener listenHTTP(HTTPServerSettings settings, void delegate(scope HTTPServerRequest, scope HTTPServerResponse) @system request_handler)
+@safe {
+	return listenHTTP(settings, (scope req, scope res) @trusted => request_handler(req, res));
+}
+/// ditto
+deprecated("Use an @safe request handler.")
+HTTPListener listenHTTP(HTTPServerSettings settings, void function(scope HTTPServerRequest, scope HTTPServerResponse) @system request_handler)
+@safe {
+	return listenHTTP(settings, (scope req, scope res) @trusted => request_handler(req, res));
+}
 
 /**
 	Provides a HTTP request handler that responds with a static Diet template.
