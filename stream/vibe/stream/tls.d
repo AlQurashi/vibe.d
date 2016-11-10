@@ -69,7 +69,6 @@ unittest {
 				stream.finalize();
 			} catch (Exception e) {
 				logInfo("Failed to receive encrypted message");
-				conn.close();
 			}
 		});
 	}

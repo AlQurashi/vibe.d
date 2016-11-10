@@ -106,7 +106,7 @@ struct FreeListRef(T, bool INIT = true)
 	private size_t m_magic = 0x1EE75817; // workaround for compiler bug
 
 	static FreeListRef opCall(ARGS...)(ARGS args)
-	@safe {
+	{
 		FreeListRef ret;
 		ret.m_object = ObjAlloc.alloc!ARGS(args);
 		ret.refCount = 1;
@@ -188,7 +188,7 @@ in {
 		   format("emplace: Chunk size too small: %s < %s size = %s",
 			  chunk.length, T.stringof, T.sizeof));
 	assert((cast(size_t) chunk.ptr) % T.alignof == 0,
-		   format("emplace: Misaligned memory block (0x%X): it must be %s-byte aligned for type %s", chunk.ptr, T.alignof, T.stringof));
+		   format("emplace: Misaligned memory block (0x%X): it must be %s-byte aligned for type %s", &chunk[0], T.alignof, T.stringof));
 
 } body {
 	enum classSize = __traits(classInstanceSize, T);
@@ -227,7 +227,7 @@ in {
 		   format("emplace: Chunk size too small: %s < %s size = %s",
 			  chunk.length, T.stringof, T.sizeof));
 	assert((cast(size_t) chunk.ptr) % T.alignof == 0,
-		   format("emplace: Misaligned memory block (0x%X): it must be %s-byte aligned for type %s", chunk.ptr, T.alignof, T.stringof));
+		   format("emplace: Misaligned memory block (0x%X): it must be %s-byte aligned for type %s", &chunk[0], T.alignof, T.stringof));
 
 } body {
 	return emplace(() @trusted { return cast(T*)chunk.ptr; } (), args);
