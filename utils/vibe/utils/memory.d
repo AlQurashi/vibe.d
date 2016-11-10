@@ -187,8 +187,9 @@ final class DebugAllocator : Allocator {
 
 	this(Allocator base_allocator) nothrow @safe
 	{
+		import vibe.internal.utilallocator : Mallocator, allocatorObject;
 		m_baseAlloc = base_allocator;
-		m_blocks = HashMap!(void*, size_t)(manualAllocator());
+		m_blocks = HashMap!(void*, size_t)(() @trusted { return Mallocator.instance.allocatorObject; } ());
 	}
 
 	@property size_t allocatedBlockCount() const { return m_blocks.length; }

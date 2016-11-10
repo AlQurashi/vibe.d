@@ -909,9 +909,9 @@ final class RedisSubscriberImpl {
 			Throwable ex;
 			bool done;
 			Task task = runTask({
-				logDebug("inTask" ~ Task.getThis().to!string);
+				logDebug("inTask %s", Task.getThis());
 				try impl();
-				catch (Throwable e) {
+				catch (Exception e) {
 					ex = e;
 				}
 				done = true;
@@ -946,7 +946,7 @@ final class RedisSubscriberImpl {
 	}
 
 	// Same as listen, but blocking
-	void blisten(void delegate(string, string) onMessage, Duration timeout = 0.seconds)
+	void blisten(void delegate(string, string) @safe onMessage, Duration timeout = 0.seconds)
 	{
 		init();
 
@@ -999,18 +999,18 @@ final class RedisSubscriberImpl {
 		void pubsub_handler() {
 			TCPConnection conn = m_lockedConnection.conn;
 			logTrace("Pubsub handler");
-			void delegate() dropCRLF = {
+			void dropCRLF() @safe {
 				ubyte[2] crlf;
 				conn.read(crlf);
-			};
-			size_t delegate() readArgs = {
+			}
+			size_t readArgs() @safe {
 				char[8] ucnt;
-				ubyte num;
+				ubyte[1] num;
 				size_t i;
 				do {
-					conn.read((&num)[0..1]);
-					if (num >= 48 && num <= 57)
-						ucnt[i] = num;
+					conn.read(num);
+					if (num[0] >= 48 && num[0] <= 57)
+						ucnt[i] = num[0];
 					else break;
 					i++;
 				}
@@ -1020,46 +1020,45 @@ final class RedisSubscriberImpl {
 				logTrace("Found %s", ucnt);
 				// the new line is consumed when num is not in range.
 				return ucnt[0 .. i].to!size_t;
-			};
+			}
 			// find the number of arguments in the array
-			ubyte symbol;
-			conn.read((&symbol)[0 .. 1]);
-			enforce(symbol == '*', "Expected '*', got '" ~ symbol.to!string ~ "'");
+			ubyte[1] symbol;
+			conn.read(symbol);
+			enforce(symbol[0] == '*', "Expected '*', got '" ~ symbol.to!string ~ "'");
 			size_t args = readArgs();
 			// get the number of characters in the first string (the command)
-			conn.read((&symbol)[0 .. 1]);
-			enforce(symbol == '$', "Expected '$', got '" ~ symbol.to!string ~ "'");
+			conn.read(symbol);
+			enforce(symbol[0] == '$', "Expected '$', got '" ~ symbol.to!string ~ "'");
 			size_t cnt = readArgs();
-			ubyte[] cmd = theAllocator.makeArray!ubyte(cnt);
-			scope(exit) theAllocator.dispose(cmd);
+			ubyte[] cmd = () @trusted { return theAllocator.makeArray!ubyte(cnt); } ();
+			scope(exit) () @trusted { theAllocator.dispose(cmd); } ();
 			conn.read(cmd);
 			dropCRLF();
 			// find the channel
-			conn.read((&symbol)[0 .. 1]);
-			enforce(symbol == '$', "Expected '$', got '" ~ symbol.to!string ~ "'");
+			conn.read(symbol);
+			enforce(symbol[0] == '$', "Expected '$', got '" ~ symbol.to!string ~ "'");
 			cnt = readArgs();
 			ubyte[] str = new ubyte[cnt];
 			conn.read(str);
 			dropCRLF();
-			string channel = cast(string)str;
+			string channel = () @trusted { return cast(string)str; } ();
 			logTrace("chan: %s", channel);
 
 			if (cmd == "message") { // find the message
-				conn.read((&symbol)[0 .. 1]);
-				enforce(symbol == '$', "Expected '$', got '" ~ symbol.to!string ~ "'");
+				conn.read(symbol);
+				enforce(symbol[0] == '$', "Expected '$', got '" ~ symbol.to!string ~ "'");
 				cnt = readArgs();
-				str = theAllocator.makeArray!ubyte(cnt);
+				str = new ubyte[cnt];
 				conn.read(str); // channel
-				string message = cast(string) str.idup; // copy to GC to avoid bugs
+				string message = () @trusted { return cast(string)str.idup; } ();
 				logTrace("msg: %s", message);
-				theAllocator.dispose(str);
 				dropCRLF();
 				onMessage(channel, message);
 			}
 			else if (cmd == "subscribe" || cmd == "unsubscribe") { // find the remaining subscriptions
 				bool is_subscribe = (cmd == "subscribe");
-				conn.read((&symbol)[0 .. 1]);
-				enforce(symbol == ':', "Expected ':', got '" ~ symbol.to!string ~ "'");
+				conn.read(symbol);
+				enforce(symbol[0] == ':', "Expected ':', got '" ~ symbol.to!string ~ "'");
 				cnt = readArgs(); // number of subscriptions
 				logTrace("subscriptions: %d", cnt);
 				if (is_subscribe)
@@ -1083,7 +1082,7 @@ final class RedisSubscriberImpl {
 					logTrace("Notify data arrival");
 
 					() @trusted { receiveTimeout(0.seconds, (Variant v) {}); } (); // clear message queue
-					m_listener.send(Action.DATA);
+					() @trusted { m_listener.send(Action.DATA); } ();
 					if (!() @trusted { return receiveTimeout(5.seconds, (Action act) { assert(act == Action.DATA); }); } ())
 						assert(false);
 
@@ -1091,7 +1090,7 @@ final class RedisSubscriberImpl {
 				logTrace("No data arrival in 100 ms...");
 			}
 			logTrace("Listener Helper exit.");
-			m_listener.send(Action.STOP);
+			() @trusted { m_listener.send(Action.STOP); } ();
 		} );
 
 		m_listening = true;
@@ -1128,7 +1127,7 @@ final class RedisSubscriberImpl {
 				m_connMutex.performLocked!({
 					pubsub_handler(); // handles one command at a time
 				});
-				m_listenerHelper.send(Action.DATA);
+				() @trusted { m_listenerHelper.send(Action.DATA); } ();
 			};
 
 			if (!() @trusted { return receiveTimeout(timeout, handler); } () || m_stop) {
@@ -1144,7 +1143,7 @@ final class RedisSubscriberImpl {
 	/// The timeout is passed over to the listener, which closes after the period of inactivity.
 	/// Use 0.seconds timeout to specify a very long time (365 days)
 	/// Errors will be sent to Callback Delegate on channel "Error".
-	Task listen(void delegate(string, string) callback, Duration timeout = 0.seconds)
+	Task listen(void delegate(string, string) @safe callback, Duration timeout = 0.seconds)
 	{
 		logTrace("Listen");
 		void impl() @safe {
@@ -1154,13 +1153,13 @@ final class RedisSubscriberImpl {
 			Throwable ex;
 			m_listener = runTask({
 				try blisten(callback, timeout);
-				catch(Throwable e) {
+				catch(Exception e) {
 					ex = e;
 					if (m_waiter != Task() && !m_listening) {
 						() @trusted { m_waiter.send(Action.STARTED); } ();
 						return;
 					}
-					callback("Error", e.toString());
+					callback("Error", e.msg);
 				}
 			});
 			m_mutex.performLocked!({
@@ -1279,7 +1278,7 @@ struct RedisReply(T = ubyte[]) {
 
 		auto ret = front.dup;
 		popFront();
-		return cast(TN)ret;
+		return () @trusted { return cast(TN)ret; } ();
 	}
 
 	void drop()

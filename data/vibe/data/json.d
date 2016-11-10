@@ -1460,6 +1460,7 @@ unittest {
 
 unittest {
 	static class C {
+		@safe:
 		int a;
 		private int _b;
 		@property int b() const { return _b; }
@@ -1480,10 +1481,11 @@ unittest {
 }
 
 unittest {
-	static struct C { int value; static C fromString(string val) { return C(val.to!int); } string toString() const { return value.to!string; } }
+	static struct C { @safe: int value; static C fromString(string val) { return C(val.to!int); } string toString() const { return value.to!string; } }
 	enum Color { Red, Green, Blue }
 	{
 		static class T {
+			@safe:
 			string[Color] enumIndexedMap;
 			string[C] stringableIndexedMap;
 			this() {
@@ -1537,6 +1539,7 @@ unittest { // #840
 
 unittest { // #1109
 	static class C {
+		@safe:
 		int mem;
 		this(int m) { mem = m; }
 		static C fromJson(Json j) { return new C(j.get!int-1); }
@@ -1601,7 +1604,7 @@ struct JsonSerializer {
 	//
 	// deserialization
 	//
-	void readDictionary(Traits)(scope void delegate(string) field_handler)
+	void readDictionary(Traits)(scope void delegate(string) @safe field_handler)
 	{
 		enforceJson(m_current.type == Json.Type.object, "Expected JSON object, got "~m_current.type.to!string);
 		auto old = m_current;
@@ -1615,7 +1618,7 @@ struct JsonSerializer {
 	void beginReadDictionaryEntry(Traits)(string name) {}
 	void endReadDictionaryEntry(Traits)(string name) {}
 
-	void readArray(Traits)(scope void delegate(size_t) size_callback, scope void delegate() entry_callback)
+	void readArray(Traits)(scope void delegate(size_t) @safe size_callback, scope void delegate() @safe entry_callback)
 	{
 		enforceJson(m_current.type == Json.Type.array, "Expected JSON array, got "~m_current.type.to!string);
 		auto old = m_current;
@@ -1631,7 +1634,7 @@ struct JsonSerializer {
 	void endReadArrayEntry(Traits)(size_t index) {}
 
 	T readValue(Traits, T)()
-	{
+	@safe {
 		static if (is(T == Json)) return m_current;
 		else static if (isJsonSerializable!T) return T.fromJson(m_current);
 		else static if (is(T == float) || is(T == double)) {
@@ -1760,7 +1763,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 			int m_line = 0;
 		}
 
-		void readDictionary(Traits)(scope void delegate(string) entry_callback)
+		void readDictionary(Traits)(scope void delegate(string) @safe entry_callback)
 		{
 			m_range.skipWhitespace(&m_line);
 			enforceJson(!m_range.empty && m_range.front == '{', "Expecting object.");
@@ -1791,7 +1794,7 @@ struct JsonStringSerializer(R, bool pretty = false)
 		void beginReadDictionaryEntry(Traits)(string name) {}
 		void endReadDictionaryEntry(Traits)(string name) {}
 
-		void readArray(Traits)(scope void delegate(size_t) size_callback, scope void delegate() entry_callback)
+		void readArray(Traits)(scope void delegate(size_t) @safe size_callback, scope void delegate() @safe entry_callback)
 		{
 			m_range.skipWhitespace(&m_line);
 			enforceJson(!m_range.empty && m_range.front == '[', "Expecting array.");

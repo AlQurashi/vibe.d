@@ -82,7 +82,7 @@ HTTPListener listenHTTP(HTTPServerSettings settings, HTTPServerRequestDelegate r
 	enforce(settings.bindAddresses.length, "Must provide at least one bind address for a HTTP server.");
 
 	HTTPServerContext ctx;
-	ctx.id = atomicOp!"+="(g_contextIDCounter, 1);
+	ctx.id = () @trusted { return atomicOp!"+="(g_contextIDCounter, 1); } ();
 	ctx.settings = settings;
 	ctx.requestHandler = request_handler;
 
@@ -1020,13 +1020,13 @@ final class HTTPServerResponse : HTTPResponse {
 		if (!allow_chunked) {
 			import vibe.internal.rangeutil;
 			long length = 0;
-			auto counter = RangeCounter(&length);
+			auto counter = RangeCounter(() @trusted { return &length; } ());
 			serializeToJson(counter, data);
 			headers["Content-Length"] = formatAlloc(m_requestAlloc, "%d", length);
 		}
 
 		auto rng = StreamOutputRange(bodyWriter);
-		serializeToJson(&rng, data);
+		serializeToJson(() @trusted { return &rng; } (), data);
 	}
 
 	/**
@@ -1121,7 +1121,7 @@ final class HTTPServerResponse : HTTPResponse {
 	}
 
 	///
-	unittest {
+	@safe unittest {
 		import vibe.http.router;
 
 		void request_handler(HTTPServerRequest req, HTTPServerResponse res)
@@ -1447,7 +1447,7 @@ private final class LimitedHTTPInputStream : LimitedInputStream {
 @safe:
 
 	this(InterfaceProxy!InputStream stream, ulong byte_limit, bool silent_limit = false) {
-		super(stream.asInterface!InputStream, byte_limit, silent_limit);
+		super(stream.asInterface!InputStream, byte_limit, silent_limit, true);
 	}
 	override void onSizeLimitReached() {
 		throw new HTTPStatusException(HTTPStatus.requestEntityTooLarge);
@@ -1520,9 +1520,9 @@ private {
 	}
 
 	void addContext(HTTPServerContext ctx)
-	@safe {
-		synchronized (() @trusted { return g_listenersMutex; } ()) {
-			atomicStore(g_contexts, g_contexts ~ () @trusted { return cast(shared)ctx; } ());
+	@trusted {
+		synchronized (g_listenersMutex) {
+			atomicStore(g_contexts, g_contexts ~ cast(shared)ctx);
 		}
 	}
 
@@ -1531,7 +1531,7 @@ private {
 		// write a new complete array reference to avoid race conditions during removal
 		auto contexts = g_contexts;
 		auto newarr = contexts[0 .. idx] ~ contexts[idx+1 .. $];
-		atomicStore(g_contexts, newarr);
+		() @trusted { atomicStore(g_contexts, newarr); } ();
 	}
 }
 
@@ -1678,7 +1678,13 @@ private void handleHTTPConnection(TCPConnection connection, HTTPListenInfo liste
 	while (!connection.empty) {
 		HTTPServerSettings settings;
 		bool keep_alive;
-		handleRequest(http_stream, connection, listen_info, settings, keep_alive);
+
+		() @trusted {
+			import std.algorithm.comparison : max;
+			auto request_allocator_s = AllocatorList!((n) => Region!GCAllocator(max(n, 1024)), NullAllocator).init;
+			scope request_allocator = request_allocator_s.allocatorObject;
+			handleRequest(http_stream, connection, listen_info, settings, keep_alive, request_allocator);
+		} ();
 		if (!keep_alive) { logTrace("No keep-alive - disconnecting client."); break; }
 
 		logTrace("Waiting for next request...");
@@ -1693,16 +1699,11 @@ private void handleHTTPConnection(TCPConnection connection, HTTPListenInfo liste
 	logTrace("Done handling connection.");
 }
 
-private bool handleRequest(Stream http_stream, TCPConnection tcp_connection, HTTPListenInfo listen_info, ref HTTPServerSettings settings, ref bool keep_alive)
+private bool handleRequest(Stream http_stream, TCPConnection tcp_connection, HTTPListenInfo listen_info, ref HTTPServerSettings settings, ref bool keep_alive, scope IAllocator request_allocator)
 @safe {
 	import std.algorithm.searching : canFind;
-	import std.algorithm.comparison : max;
 
 	SysTime reqtime = Clock.currTime(UTC());
-
-	//auto request_allocator = scoped!(PoolAllocator)(1024, defaultAllocator());
-	auto request_allocator_s = AllocatorList!((n) => Region!GCAllocator(max(n, 1024)), NullAllocator).init;
-	scope request_allocator = request_allocator_s.allocatorObject;
 
 	// some instances that live only while the request is running
 	FreeListRef!HTTPServerRequest req = FreeListRef!HTTPServerRequest(reqtime, listen_info.bindPort);

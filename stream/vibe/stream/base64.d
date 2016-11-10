@@ -21,10 +21,10 @@ import std.base64;
 			line break is inserted into the output. Defaults to 57,
 			according to the MIME standard.
 */
-Base64OutputStream createBase64OutputStream(char C62 = '+', char C63 = '/', OutputStream)(OutputStream output, ulong max_bytes_per_line = 57)
+Base64OutputStreamImpl!(C62, C63, CPAD, OutputStream) createBase64OutputStream(char C62 = '+', char C63 = '/', char CPAD = '=', OutputStream)(OutputStream output, ulong max_bytes_per_line = 57)
 	if (isOutputStream!OutputStream)
 {
-	return new Base64OutputStreamImpl!(C62, C63, OutputStream)(output, max_bytes_per_line);
+	return new Base64OutputStreamImpl!(C62, C63, CPAD, OutputStream)(output, max_bytes_per_line, true);
 }
 
 /** Creates a URL safe Base64 encoding stream (using '-' and '_' for non-alphabetic values).
@@ -35,10 +35,10 @@ Base64OutputStream createBase64OutputStream(char C62 = '+', char C63 = '/', Outp
 			line break is inserted into the output. Defaults to 57,
 			according to the MIME standard.
 */
-Base64URLOutputStream createBase64URLOutputStream(OutputStream)(OutputStream output, ulong max_bytes_per_line = 57)
+Base64OutputStreamImpl!('-', '_', '=', OutputStream) createBase64URLOutputStream(OutputStream)(OutputStream output, ulong max_bytes_per_line = 57)
 	if (isOutputStream!OutputStream)
 {
-	return new Base64OutputStreamImpl!('-', '_', OutputStream)(output, max_bytes_per_line, true);
+	return craeteBase64OutputStream!('-', '_')(output, max_bytes_per_line);
 }
 
 
@@ -59,7 +59,9 @@ alias Base64URLOutputStream = Base64OutputStreamImpl!('-', '_');
 	are used to represent the 62nd and 63rd code units. CPAD is the character
 	used for padding the end of the result if necessary.
 */
-final class Base64OutputStreamImpl(char C62, char C63, char CPAD = '=') : OutputStream {
+final class Base64OutputStreamImpl(char C62, char C63, char CPAD = '=', OutputStream = .OutputStream) : .OutputStream
+	if (isOutputStream!OutputStream)
+{
 	private {
 		OutputStream m_out;
 		ulong m_maxBytesPerLine;
@@ -186,8 +188,8 @@ unittest {
 	void test(in ubyte[] data, string encoded, ulong bytes_per_line = 57)
 	{
 		import vibe.stream.memory;
-		auto encstr = new MemoryOutputStream;
-		auto bostr = new Base64OutputStream(encstr, bytes_per_line);
+		auto encstr = createMemoryOutputStream();
+		auto bostr = createBase64OutputStream(encstr, bytes_per_line);
 		bostr.write(data);
 		assert(encstr.data == encoded);
 		/*encstr.seek(0);

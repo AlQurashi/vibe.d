@@ -9,7 +9,7 @@
 module vibe.http.websockets;
 
 ///
-unittest {
+@safe unittest {
 	void handleConn(scope WebSocket sock)
 	{
 		// simple echo server
@@ -81,7 +81,7 @@ class WebSocketException: Exception
 	Returns a WebSocket client object that is connected to the specified host.
 */
 WebSocket connectWebSocket(URL url, const(HTTPClientSettings) settings = defaultSettings)
-{
+@safe {
 	import std.typecons : Tuple, tuple;
 
 	auto host = url.host;
@@ -138,7 +138,7 @@ WebSocket connectWebSocket(URL url, const(HTTPClientSettings) settings = default
 
 /// ditto
 void connectWebSocket(URL url, scope WebSocketHandshakeDelegate del, const(HTTPClientSettings) settings = defaultSettings)
-{
+@safe {
 	bool use_tls = (url.schema == "wss") ? true : false;
 	url.schema = use_tls ? "https" : "http";
 
@@ -171,7 +171,7 @@ void connectWebSocket(URL url, scope WebSocketHandshakeDelegate del, const(HTTPC
 	Establishes a web socket conection and passes it to the $(D on_handshake) delegate.
 */
 void handleWebSocket(scope WebSocketHandshakeDelegate on_handshake, scope HTTPServerRequest req, scope HTTPServerResponse res)
-{
+@safe {
 	auto pUpgrade = "Upgrade" in req.headers;
 	auto pConnection = "Connection" in req.headers;
 	auto pKey = "Sec-WebSocket-Key" in req.headers;
@@ -221,12 +221,12 @@ void handleWebSocket(scope WebSocketHandshakeDelegate on_handshake, scope HTTPSe
 	Returns a HTTP request handler that establishes web socket conections.
 */
 HTTPServerRequestDelegateS handleWebSockets(void function(scope WebSocket) @safe on_handshake)
-{
+@safe {
 	return handleWebSockets(() @trusted { return toDelegate(on_handshake); } ());
 }
 /// ditto
 HTTPServerRequestDelegateS handleWebSockets(WebSocketHandshakeDelegate on_handshake)
-{
+@safe {
 	void callback(scope HTTPServerRequest req, scope HTTPServerResponse res)
 	@safe {
 		auto pUpgrade = "Upgrade" in req.headers;

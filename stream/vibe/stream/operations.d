@@ -57,9 +57,9 @@ void readLine(R, InputStream)(InputStream stream, ref R dst, size_t max_bytes = 
 }
 
 unittest {
-	import vibe.stream.memory : MemoryOutputStream, MemoryStream;
+	import vibe.stream.memory : createMemoryOutputStream, createMemoryStream;
 
-	auto inp = new MemoryStream(cast(ubyte[])"Hello, World!\r\nThis is a test.\r\nNot a full line.".dup);
+	auto inp = createMemoryStream(cast(ubyte[])"Hello, World!\r\nThis is a test.\r\nNot a full line.".dup);
 	assert(inp.readLine() == cast(const(ubyte)[])"Hello, World!");
 	assert(inp.readLine() == cast(const(ubyte)[])"This is a test.");
 	assertThrown(inp.readLine);
@@ -73,7 +73,7 @@ unittest {
 	assert(app.data == cast(const(ubyte)[])"Hello, World!");
 
 	// read into an output stream
-	auto os = new MemoryOutputStream;
+	auto os = createMemoryOutputStream();
 	inp.readLine(os);
 	assert(os.data == cast(const(ubyte)[])"This is a test.");
 }
@@ -150,7 +150,7 @@ unittest {
 	import vibe.stream.memory;
 
 	auto text = "1231234123111223123334221111112221231333123123123123123213123111111111114";
-	auto stream = new MemoryStream(cast(ubyte[])text);
+	auto stream = createMemoryStream(cast(ubyte[])text);
 	void test(string s, size_t expected){
 		stream.seek(0);
 		auto result = cast(string)readUntil(stream, cast(ubyte[])s);
@@ -159,7 +159,7 @@ unittest {
 		assert(stream.leastSize() == stream.size() - expected - s.length, "Wrong number of bytes left in stream");
 
 		stream.seek(0);
-		auto inp2 = new NoPeekProxy(stream);
+		auto inp2 = new NoPeekProxy!InputStream(stream);
 		result = cast(string)readUntil(inp2, cast(const(ubyte)[])s);
 		assert(result.length == expected, "Wrong result index");
 		assert(result == text[0 .. result.length], "Wrong result contents: "~result~" vs "~text[0 .. result.length]);
@@ -186,14 +186,14 @@ unittest {
 }
 
 unittest {
-	import vibe.stream.memory : MemoryOutputStream, MemoryStream;
+	import vibe.stream.memory : createMemoryOutputStream, createMemoryStream, MemoryStream;
 	import vibe.stream.wrapper : ProxyStream;
 
 	auto text = cast(ubyte[])"ab\nc\rd\r\ne".dup;
 	void test(string marker, size_t idx)
 	{
 		// code path for peek support
-		auto inp = new MemoryStream(text);
+		auto inp = createMemoryStream(text);
 		auto dst = appender!(ubyte[]);
 		readUntil(inp, dst, cast(const(ubyte)[])marker);
 		assert(dst.data == text[0 .. idx]);
@@ -202,7 +202,7 @@ unittest {
 		// code path for no peek support
 		inp.seek(0);
 		dst = appender!(ubyte[]);
-		auto inp2 = new NoPeekProxy(inp);
+		auto inp2 = new NoPeekProxy!MemoryStream(inp);
 		readUntil(inp2, dst, cast(const(ubyte)[])marker);
 		assert(dst.data == text[0 .. idx]);
 		assert(inp.readAll() == text[idx+marker.length .. $]);
@@ -219,26 +219,29 @@ unittest {
 		An exception is thrown if the stream contains more than max_bytes data.
 */
 ubyte[] readAll(InputStream)(InputStream stream, size_t max_bytes = size_t.max, size_t reserve_bytes = 0) /*@ufcs*/
-	if (isInputStream!InputStream)
+@safe	if (isInputStream!InputStream)
 {
 	import vibe.internal.freelistref;
 
 	if (max_bytes == 0) logDebug("Deprecated behavior: readAll() called with max_bytes==0, use max_bytes==size_t.max instead.");
 
 	// prepare output buffer
-	auto dst = appender!(ubyte[])();
+	auto dst = AllocAppender!(ubyte[])(() @trusted { return GCAllocator.instance.allocatorObject; } ());
 	reserve_bytes = max(reserve_bytes, min(max_bytes, stream.leastSize));
 	if (reserve_bytes) dst.reserve(reserve_bytes);
 
-	auto bufferobj = FreeListRef!(Buffer, false)();
-	auto buffer = bufferobj.bytes[];
+	auto buffer = new ubyte[64*1024];
+	scope (exit) () @trusted { delete buffer; } ();
 	size_t n = 0;
 	while (!stream.empty) {
-		size_t chunk = cast(size_t)min(stream.leastSize, buffer.length);
+		size_t chunk = stream.leastSize;
 		n += chunk;
 		enforce(!max_bytes || n <= max_bytes, "Input data too long!");
-		stream.read(buffer[0 .. chunk]);
-		dst.put(buffer[0 .. chunk]);
+		dst.reserve(chunk);
+		dst.append((scope buf) {
+			stream.read(buf[0 .. chunk]);
+			return chunk;
+		});
 	}
 	return dst.data;
 }
@@ -260,7 +263,7 @@ ubyte[] readAll(InputStream)(InputStream stream, size_t max_bytes = size_t.max, 
 		a UTFException is thrown.
 */
 string readAllUTF8(InputStream)(InputStream stream, bool sanitize = false, size_t max_bytes = size_t.max)
- 	if (isInputStream!InputStream)
+@safe 	if (isInputStream!InputStream)
 {
 	import std.utf;
 	import vibe.utils.string;
@@ -522,7 +525,7 @@ private class NoPeekProxy(InputStream) : ProxyStream
 {
 	this(InputStream stream)
 	{
-		super(stream, null);
+		super(stream, null, true);
 	}
 
 	override const(ubyte)[] peek() { return null; }

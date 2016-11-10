@@ -74,7 +74,7 @@ unittest { // test usual, empty and multiline header
 	import vibe.stream.memory;
 	ubyte[] hdr = cast(ubyte[])"A: a \r\nB: \r\nC:\r\n\tc\r\n\r\n".dup;
 	InetHeaderMap map;
-	parseRFC5322Header(new MemoryStream(hdr), map);
+	parseRFC5322Header(createMemoryStream(hdr), map);
 	assert(map.length == 3);
 	assert(map["A"] == "a");
 	assert(map["B"] == "");
@@ -86,7 +86,7 @@ unittest { // fail for empty header names
 	import vibe.stream.memory;
 	auto hdr = cast(ubyte[])": test\r\n\r\n".dup;
 	InetHeaderMap map;
-	assertThrown(parseRFC5322Header(new MemoryStream(hdr), map));
+	assertThrown(parseRFC5322Header(createMemoryStream(hdr), map));
 }
 
 

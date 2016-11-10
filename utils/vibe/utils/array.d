@@ -159,7 +159,7 @@ struct AllocAppender(ArrayType : E[], E) {
 			slice as desired and then has to return the number of elements
 			that should be appended (counting from the start of the slice).
 		*/
-		void append(scope size_t delegate(scope ElemType[] dst) del)
+		void append(scope size_t delegate(scope ElemType[] dst) @safe del)
 		{
 			auto n = del(m_remaining);
 			assert(n <= m_remaining.length);
@@ -218,7 +218,7 @@ unittest {
 		assert(mem.length >= 2);
 		mem[0] = 1;
 		mem[1] = 2;
-		return 2;
+		return size_t(2);
 	});
 	assert(app.data == [1, 2]);
 }
@@ -231,7 +231,7 @@ unittest {
 		mem[0] = 'f';
 		mem[1] = 'o';
 		mem[2] = 'o';
-		return 3;
+		return size_t(3);
 	});
 	assert(app.data == "foo");
 }

@@ -42,7 +42,7 @@ class ConnectionPool(Connection)
 	this(Connection delegate() @safe connection_factory, uint max_concurrent = uint.max)
 	{
 		m_connectionFactory = connection_factory;
-		m_sem = FreeListRef!LocalTaskSemaphore(max_concurrent);
+		() @trusted { m_sem = FreeListRef!LocalTaskSemaphore(max_concurrent); } ();
 		debug m_thread = () @trusted { return Thread.getThis(); } ();
 	}
 

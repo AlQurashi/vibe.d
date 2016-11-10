@@ -659,7 +659,7 @@ struct Bson {
 	/**
 		Allows foreach iterating over BSON objects and arrays.
 	*/
-	int opApply(int delegate(Bson obj) @safe del)
+	int opApply(scope int delegate(Bson obj) @safe del)
 	const {
 		checkType(Type.array, Type.object);
 		if( m_type == Type.array ){
@@ -675,7 +675,7 @@ struct Bson {
 		}
 	}
 	/// ditto
-	int opApply(int delegate(ref size_t idx, Bson obj) @safe del)
+	int opApply(scope int delegate(size_t idx, Bson obj) @safe del)
 	const {
 		checkType(Type.array);
 		auto d = m_data[4 .. $];
@@ -697,7 +697,7 @@ struct Bson {
 		return 0;
 	}
 	/// ditto
-	int opApply(int delegate(ref string idx, Bson obj) @safe del)
+	int opApply(scope int delegate(string idx, Bson obj) @safe del)
 	const {
 		checkType(Type.object);
 		auto d = m_data[4 .. $];
@@ -1213,12 +1213,13 @@ unittest {
 
 unittest {
 	static class C {
+	@safe:
 		int a;
 		private int _b;
 		@property int b() const { return _b; }
 		@property void b(int v) { _b = v; }
 
-		@property int test() const { return 10; }
+		@property int test() const @safe { return 10; }
 
 		void test2() {}
 	}
@@ -1238,10 +1239,11 @@ unittest {
 }
 
 unittest {
-	static struct C { int value; static C fromString(string val) { return C(val.to!int); } string toString() const { return value.to!string; } }
+	static struct C { @safe: int value; static C fromString(string val) { return C(val.to!int); } string toString() const { return value.to!string; } }
 	enum Color { Red, Green, Blue }
 	{
 		static class T {
+			@safe:
 			string[Color] enumIndexedMap;
 			string[C] stringableIndexedMap;
 			this() {

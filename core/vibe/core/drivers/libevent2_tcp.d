@@ -506,6 +506,8 @@ final class Libevent2TCPListener : TCPListener {
 
 package struct TCPContext
 {
+	@safe:
+
 	this(DriverCore c, event_base* evbase, int sock, bufferevent* evt, NetworkAddress bindaddr, NetworkAddress peeraddr){
 		core = c;
 		eventLoop = evbase;
@@ -527,7 +529,7 @@ package struct TCPContext
 		magic__ = 0;
 	}
 
-	void checkForException() @safe {
+	void checkForException() {
 		if (auto ex = this.exception) {
 			this.exception = null;
 			throw ex;

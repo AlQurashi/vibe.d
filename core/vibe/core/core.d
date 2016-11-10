@@ -800,7 +800,7 @@ Timer setTimer(Duration timeout, void delegate() @safe callback, bool periodic =
 ///
 unittest {
 	void printTime()
-	{
+	@safe {
 		import std.datetime;
 		logInfo("The time is: %s", Clock.currTime());
 	}
@@ -809,7 +809,7 @@ unittest {
 	{
 		import vibe.core.core;
 		// start a periodic timer that prints the time every second
-		setTimer(1.seconds, toDelegate(&printTime), true);
+		setTimer(1.seconds, &printTime, true);
 	}
 }
 

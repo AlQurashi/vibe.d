@@ -113,12 +113,10 @@ interface OutputStream {
 
 	protected final void writeDefault(InputStream stream, ulong nbytes = 0)
 	{
-		import vibe.internal.allocator : dispose, make, theAllocator;
+		import vibe.internal.allocator : dispose, makeArray, theAllocator;
 
-		static struct Buffer { ubyte[64*1024] bytes = void; }
-		auto bufferobj = theAllocator.make!Buffer;
-		scope (exit) theAllocator.dispose(bufferobj);
-		auto buffer = bufferobj.bytes[];
+		auto buffer = () @trusted { return theAllocator.makeArray!ubyte(64*1024); } ();
+		scope (exit) () @trusted { theAllocator.dispose(buffer); } ();
 
 		//logTrace("default write %d bytes, empty=%s", nbytes, stream.empty);
 		if( nbytes == 0 ){

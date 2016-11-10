@@ -105,15 +105,17 @@ struct Session {
 		//import vibe.http.server;
 		// workaround for cyclic module ctor compiler error
 		class HTTPServerRequest { Session session; }
-		class HTTPServerResponse { import vibe.core.stream; OutputStream bodyWriter() { assert(false); } string contentType; }
+		class HTTPServerResponse { import vibe.core.stream; OutputStream bodyWriter() @safe { assert(false); } string contentType; }
 
 		// sends all session entries to the requesting browser
 		// assumes that all entries are strings
 		void handleRequest(scope HTTPServerRequest req, scope HTTPServerResponse res)
 		{
 			res.contentType = "text/plain";
-			foreach(key; req.session)
+			req.session.opApply((key) @safe {
 				res.bodyWriter.write(key ~ ": " ~ req.session.get!string(key) ~ "\n");
+				return 0;
+			});
 		}
 	}
 

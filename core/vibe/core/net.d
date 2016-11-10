@@ -60,7 +60,7 @@ NetworkAddress resolveHost(string host, ushort address_family, bool use_dns = tr
 	interface on which the server socket is supposed to listen for connections.
 	By default, all IPv4 and IPv6 interfaces will be used.
 */
-TCPListener[] listenTCP(ushort port, void delegate(TCPConnection stream) connection_callback, TCPListenOptions options = TCPListenOptions.defaults)
+TCPListener[] listenTCP(ushort port, void delegate(TCPConnection stream) @safe connection_callback, TCPListenOptions options = TCPListenOptions.defaults)
 {
 	TCPListener[] ret;
 	try ret ~= listenTCP(port, connection_callback, "::", options);
@@ -71,7 +71,7 @@ TCPListener[] listenTCP(ushort port, void delegate(TCPConnection stream) connect
 	return ret;
 }
 /// ditto
-TCPListener listenTCP(ushort port, void delegate(TCPConnection stream) connection_callback, string address, TCPListenOptions options = TCPListenOptions.defaults)
+TCPListener listenTCP(ushort port, void delegate(TCPConnection stream) @safe connection_callback, string address, TCPListenOptions options = TCPListenOptions.defaults)
 {
 	return getEventDriver().listenTCP(port, connection_callback, address, options);
 }
@@ -81,12 +81,12 @@ TCPListener listenTCP(ushort port, void delegate(TCPConnection stream) connectio
 
 	This function is the same as listenTCP but takes a function callback instead of a delegate.
 */
-TCPListener[] listenTCP_s(ushort port, void function(TCPConnection stream) connection_callback, TCPListenOptions options = TCPListenOptions.defaults)
+TCPListener[] listenTCP_s(ushort port, void function(TCPConnection stream) @safe connection_callback, TCPListenOptions options = TCPListenOptions.defaults)
 {
 	return listenTCP(port, () @trusted { return toDelegate(connection_callback); } (), options);
 }
 /// ditto
-TCPListener listenTCP_s(ushort port, void function(TCPConnection stream) connection_callback, string address, TCPListenOptions options = TCPListenOptions.defaults)
+TCPListener listenTCP_s(ushort port, void function(TCPConnection stream) @safe connection_callback, string address, TCPListenOptions options = TCPListenOptions.defaults)
 {
 	return listenTCP(port, () @trusted { return toDelegate(connection_callback); } (), address, options);
 }

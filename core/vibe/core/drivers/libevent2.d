@@ -344,7 +344,7 @@ final class Libevent2Driver : EventDriver {
 		return new Libevent2TCPConnection(cctx);
 	}
 
-	Libevent2TCPListener listenTCP(ushort port, void delegate(TCPConnection conn) connection_callback, string address, TCPListenOptions options)
+	Libevent2TCPListener listenTCP(ushort port, void delegate(TCPConnection conn) @safe connection_callback, string address, TCPListenOptions options)
 	{
 		auto bind_addr = resolveHost(address, AF_UNSPEC, false);
 		bind_addr.port = port;
@@ -385,7 +385,7 @@ final class Libevent2Driver : EventDriver {
 			Libevent2TCPListener listener;
 			int listenfd;
 			NetworkAddress bind_addr;
-			void delegate(TCPConnection) connection_callback;
+			void delegate(TCPConnection) @safe connection_callback;
 			TCPListenOptions options;
 		}
 
@@ -682,7 +682,7 @@ final class Libevent2ManualEvent : Libevent2Object, ManualEvent {
 		static if (!synchronizedIsNothrow)
 			scope (failure) assert(0, "Internal error: function should be nothrow");
 
-		atomicOp!"+="(m_emitCount, 1);
+		() @trusted { atomicOp!"+="(m_emitCount, 1); } ();
 		synchronized (m_mutex) {
 			foreach (ref m_waiters.Value sl; m_waiters)
 				() @trusted { event_active(sl.event, 0, 0); } ();
@@ -738,7 +738,7 @@ final class Libevent2ManualEvent : Libevent2Object, ManualEvent {
 		}
 	}
 
-	@property int emitCount() const { return atomicLoad(m_emitCount); }
+	@property int emitCount() const @trusted { return atomicLoad(m_emitCount); }
 
 	protected override void onThreadShutdown()
 	{
@@ -1216,7 +1216,7 @@ final class InotifyDirectoryWatcher : DirectoryWatcher {
 		static struct Args { InotifyDirectoryWatcher watcher; bool readable, timeout; }
 
 		static extern(System) void cb(int fd, short what, void* p) {
-			with (cast(Args*)p) {
+			with (() @trusted { return cast(Args*)p; } ()) {
 				if (what & EV_READ) readable = true;
 				if (what & EV_TIMEOUT) timeout = true;
 				if (watcher.m_owner)

@@ -150,7 +150,7 @@ unittest
 
 	auto content_type = "multipart/form-data; boundary=\"AaB03x\"";
 
-	auto input = new MemoryStream(cast(ubyte[])(
+	auto input = createMemoryStream(cast(ubyte[])(
 			"--AaB03x\r\n" ~
 			"Content-Disposition: form-data; name=\"submit-name\"\r\n" ~
 			"\r\n" ~
@@ -176,7 +176,7 @@ unittest { // issue #1220 - wrong handling of Content-Length
 
 	auto content_type = "multipart/form-data; boundary=\"AaB03x\"";
 
-	auto input = new MemoryStream(cast(ubyte[])(
+	auto input = createMemoryStream(cast(ubyte[])(
 			"--AaB03x\r\n" ~
 			"Content-Disposition: form-data; name=\"submit-name\"\r\n" ~
 			"\r\n" ~

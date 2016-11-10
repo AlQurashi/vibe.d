@@ -290,7 +290,7 @@ final class URLRouter : HTTPServerRequestHandler {
 }
 
 ///
-unittest {
+@safe unittest {
 	import vibe.http.fileserver;
 
 	void addGroup(HTTPServerRequest req, HTTPServerResponse res)
@@ -343,7 +343,7 @@ unittest {
 /** Using nested routers to map components to different sub paths. A component
 	could for example be an embedded blog engine.
 */
-unittest {
+@safe unittest {
 	// some embedded component:
 
 	void showComponentHome(HTTPServerRequest req, HTTPServerResponse res)
@@ -391,7 +391,7 @@ unittest {
 	}
 }
 
-unittest {
+@safe unittest {
 	import vibe.inet.url;
 
 	auto router = new URLRouter;
@@ -423,7 +423,7 @@ unittest {
 	assert(result == "ABCD", "Didn't match 1-character infix variable.");
 }
 
-unittest {
+@safe unittest {
 	import vibe.inet.url;
 
 	auto router = new URLRouter("/test");

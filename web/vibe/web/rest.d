@@ -1019,7 +1019,7 @@ private HTTPServerRequestDelegate jsonMethodHandler(alias Func, size_t ridx, T)(
 	auto settings = intf.settings;
 
 	void handler(HTTPServerRequest req, HTTPServerResponse res)
-	{
+	@safe {
 		if (route.bodyParameters.length) {
 			logDebug("BODYPARAMS: %s %s", Method, route.bodyParameters.length);
 			/*enforceBadRequest(req.contentType == "application/json",
@@ -1119,7 +1119,7 @@ private HTTPServerRequestDelegate jsonMethodHandler(alias Func, size_t ridx, T)(
 				returnHeaders();
 				res.writeJsonBody(Json.emptyObject);
 			} else {
-				auto ret = __traits(getMember, inst, Method)(params);
+				auto ret = () @trusted { return __traits(getMember, inst, Method)(params); } (); // TODO: deprecate and remove the @trusted
 				ret = evaluateOutputModifiers!Func(ret, req, res);
 				returnHeaders();
 				res.writeJsonBody(ret);
@@ -1133,13 +1133,13 @@ private HTTPServerRequestDelegate jsonMethodHandler(alias Func, size_t ridx, T)(
 			}
 		} catch (Exception e) {
 			// TODO: better error description!
-			logDebug("REST handler exception: %s", e.toString());
+			logDebug("REST handler exception: %s", () @trusted { return e.toString(); } ());
 			if (res.headerWritten) logDebug("Response already started. Client will not receive an error code!");
 			else
 			{
 				returnHeaders();
 				res.writeJsonBody(
-					[ "statusMessage": e.msg, "statusDebugMessage": sanitizeUTF8(cast(ubyte[])e.toString()) ],
+					[ "statusMessage": e.msg, "statusDebugMessage": () @trusted { return sanitizeUTF8(cast(ubyte[])e.toString()); } () ],
 					HTTPStatus.internalServerError
 					);
 			}

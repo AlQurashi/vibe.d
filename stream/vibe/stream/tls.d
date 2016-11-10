@@ -62,7 +62,7 @@ unittest {
 		auto sslctx = createTLSContext(TLSContextKind.server);
 		sslctx.useCertificateChainFile("server.crt");
 		sslctx.usePrivateKeyFile("server.key");
-		listenTCP(1234, (conn){
+		listenTCP(1234, (conn) @safe {
 			auto stream = createTLSStream(conn, sslctx);
 			logInfo("Got message: %s", stream.readAllUTF8());
 			stream.finalize();
@@ -86,14 +86,14 @@ unittest {
 TLSContext createTLSContext(TLSContextKind kind, TLSVersion ver = TLSVersion.any)
 @trusted {
 	version (OpenSSL) {
-		static TLSContext createOpenSSLContext(TLSContextKind kind, TLSVersion ver) {
+		static TLSContext createOpenSSLContext(TLSContextKind kind, TLSVersion ver) @safe {
 			import vibe.stream.openssl;
 			return new OpenSSLContext(kind, ver);
 		}
 		if (!gs_sslContextFactory)
 			setTLSContextFactory(&createOpenSSLContext);
 	} else version(Botan) {
-		static TLSContext createBotanContext(TLSContextKind kind, TLSVersion ver) {
+		static TLSContext createBotanContext(TLSContextKind kind, TLSVersion ver) @safe {
 			import vibe.stream.botan;
 			return new BotanTLSContext(kind);
 		}
