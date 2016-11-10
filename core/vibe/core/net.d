@@ -75,6 +75,19 @@ TCPListener listenTCP(ushort port, void delegate(TCPConnection stream) @safe con
 {
 	return getEventDriver().listenTCP(port, connection_callback, address, options);
 }
+/// ditto
+deprecated("Use an @safe connection callback.")
+TCPListener[] listenTCP(ushort port, void delegate(TCPConnection stream) @system connection_callback, TCPListenOptions options = TCPListenOptions.defaults)
+{
+	return listenTCP(port, (s) @trusted => connection_callback(s), options);
+}
+/// ditto
+deprecated("Use an @safe connection callback.")
+TCPListener listenTCP(ushort port, void delegate(TCPConnection stream) @system connection_callback, string address, TCPListenOptions options = TCPListenOptions.defaults)
+{
+	return listenTCP(port, (s) @trusted => connection_callback(s), address, options);
+}
+
 
 /**
 	Starts listening on the specified port.
