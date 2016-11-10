@@ -70,7 +70,7 @@ import std.traits;
 
 */
 URLRouter registerRestInterface(TImpl)(URLRouter router, TImpl instance, RestInterfaceSettings settings = null)
-@safe {
+{
 	import std.algorithm : filter, map, all;
 	import std.array : array;
 	import std.range : front;
@@ -1061,7 +1061,9 @@ private HTTPServerRequestDelegate jsonMethodHandler(alias Func, size_t ridx, T)(
 				if (auto pv = fieldname in req.headers)
 					v = fromRestString!PT(*pv);
 			} else static if (sparam.kind == ParameterKind.attributed) {
-				v = computeAttributedParameterCtx!(Func, pname)(inst, req, res);
+				static if (!__traits(compiles, () @safe { } ()))
+					pragma(msg, "Non-@safe @before evaluators are deprecated - annotate evaluator function for parameter "~pname~" of "~T.stringof~"."~Method~" as @safe.");
+				v = () @trusted { return computeAttributedParameterCtx!(Func, pname)(inst, req, res); } ();
 			} else static if (sparam.kind == ParameterKind.internal) {
 				if (auto pv = fieldname in req.params)
 					v = fromRestString!PT(urlDecode(*pv));
@@ -1115,13 +1117,20 @@ private HTTPServerRequestDelegate jsonMethodHandler(alias Func, size_t ridx, T)(
 		try {
 			import vibe.internal.meta.funcattr;
 
+			static if (!__traits(compiles, () @safe { __traits(getMember, inst, Method)(params); }))
+				pragma(msg, "Non-@safe methods are deprecated in REST interfaces - Mark "~T.stringof~"."~Method~" as @safe.");
+
 			static if (is(RT == void)) {
-				__traits(getMember, inst, Method)(params);
+				() @trusted { __traits(getMember, inst, Method)(params); } (); // TODO: remove after deprecation period
 				returnHeaders();
 				res.writeJsonBody(Json.emptyObject);
 			} else {
-				auto ret = () @trusted { return __traits(getMember, inst, Method)(params); } (); // TODO: deprecate and remove the @trusted
-				ret = evaluateOutputModifiers!Func(ret, req, res);
+				auto ret = () @trusted { return __traits(getMember, inst, Method)(params); } (); // TODO: remove after deprecation period
+
+				static if (!__traits(compiles, () @safe { evaluateOutputModifiers!Func(ret, req, res); } ()))
+					pragma(msg, "Non-@safe @after evaluators are deprecated - annotate @after evaluator function for "~T.stringof~"."~Method~" as @safe.");
+
+				ret = () @trusted { return evaluateOutputModifiers!Func(ret, req, res); } ();
 				returnHeaders();
 				res.writeJsonBody(ret);
 			}
