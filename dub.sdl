@@ -32,9 +32,6 @@ sourceFiles "source/vibe/d.d" "source/vibe/vibe.d"
 
 x:ddoxFilterArgs "--unittest-examples" "--min-protection=Protected" "--ex" "vibe.core.drivers." "--ex" "vibe.internal." "--ex" "vibe.web.internal."
 
-configuration "vibe-core" {
-	subConfiguration "vibe-d:core" "vibe-core"
-}
 configuration "libevent" {
 	subConfiguration "vibe-d:core" "libevent"
 }
@@ -46,6 +43,9 @@ configuration "win32" {
 }
 configuration "winrt" {
 	subConfiguration "vibe-d:core" "winrt"
+}
+configuration "vibe-core" {
+	subConfiguration "vibe-d:core" "vibe-core"
 }
 
 subPackage "utils"

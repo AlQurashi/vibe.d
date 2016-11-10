@@ -11,11 +11,6 @@ importPaths "."
 
 mainSourceFile "vibe/appmain.d"
 
-configuration "vibe-core" {
-	targetType "none"
-	dependency "vibe-core" version="~>1.0.0-alpha.2"
-}
-
 configuration "libevent" {
 	platforms "windows-x86-dmd" "posix"
 	dependency "libevent" version="~>2.0.1"
@@ -46,4 +41,9 @@ configuration "winrt" {
 	targetType "library"
 	sourceFiles "../lib/win-i386/runtimeobject.lib" platform="windows-x86"
 	versions "VibeWinrtDriver"
+}
+
+configuration "vibe-core" {
+	targetType "none"
+	dependency "vibe-core" version="~>1.0.0-alpha.2"
 }
