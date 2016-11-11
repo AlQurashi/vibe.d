@@ -1594,8 +1594,11 @@ struct JsonSerializer {
 	void writeValue(Traits, T)(in T value)
 		if (!is(T == Json))
 	{
-		static if (isJsonSerializable!T) m_current = value.toJson();
-		else m_current = Json(value);
+		static if (isJsonSerializable!T) {
+			static if (!__traits(compiles, () @safe { return value.toJson(); } ()))
+				pragma(msg, "Non-@safe toJson/fromJson methods are deprecated - annotate "~T.stringof~".toJson() with @safe.");
+			m_current = () @trusted { return value.toJson(); } ();
+		} else m_current = Json(value);
 	}
 
 	void writeValue(Traits, T)(Json value) if (is(T == Json)) { m_current = value; }
@@ -1636,8 +1639,11 @@ struct JsonSerializer {
 	T readValue(Traits, T)()
 	@safe {
 		static if (is(T == Json)) return m_current;
-		else static if (isJsonSerializable!T) return T.fromJson(m_current);
-		else static if (is(T == float) || is(T == double)) {
+		else static if (isJsonSerializable!T) {
+			static if (!__traits(compiles, () @safe { return T.fromJson(m_current); } ()))
+				pragma(msg, "Non-@safe toJson/fromJson methods are deprecated - annotate "~T.stringof~".fromJson() with @safe.");
+			return () @trusted { return T.fromJson(m_current); } ();
+		} else static if (is(T == float) || is(T == double)) {
 			switch (m_current.type) {
 				default: return cast(T)m_current.get!long;
 				case Json.Type.null_: goto case;
@@ -1719,8 +1725,11 @@ struct JsonStringSerializer(R, bool pretty = false)
 				m_range.put('"');
 			}
 			else static if (is(T == Json)) m_range.writeJsonString(value);
-			else static if (isJsonSerializable!T) m_range.writeJsonString!(R, pretty)(value.toJson(), m_level);
-			else static assert(false, "Unsupported type: " ~ T.stringof);
+			else static if (isJsonSerializable!T) {
+				static if (!__traits(compiles, () @safe { return value.toJson(); } ()))
+					pragma(msg, "Non-@safe toJson/fromJson methods are deprecated - annotate "~T.stringof~".toJson() with @safe.");
+				m_range.writeJsonString!(R, pretty)(() @trusted { return value.toJson(); } (), m_level);
+			} else static assert(false, "Unsupported type: " ~ T.stringof);
 		}
 
 		private void startComposite()
@@ -1851,8 +1860,11 @@ struct JsonStringSerializer(R, bool pretty = false)
 			}
 			else static if (is(T == string)) return m_range.skipJsonString(&m_line);
 			else static if (is(T == Json)) return m_range.parseJson(&m_line);
-			else static if (isJsonSerializable!T) return T.fromJson(m_range.parseJson(&m_line));
-			else static assert(false, "Unsupported type: " ~ T.stringof);
+			else static if (isJsonSerializable!T) {
+				static if (!__traits(compiles, () @safe { return T.fromJson(Json.init); } ()))
+					pragma(msg, "Non-@safe toJson/fromJson methods are deprecated - annotate "~T.stringof~".fromJson() with @safe.");
+				return () @trusted { return T.fromJson(m_range.parseJson(&m_line)); } ();
+			} else static assert(false, "Unsupported type: " ~ T.stringof);
 		}
 
 		bool tryReadNull(Traits)()

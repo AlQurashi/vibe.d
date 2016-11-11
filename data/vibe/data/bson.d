@@ -1408,9 +1408,15 @@ struct BsonSerializer {
 		else static if (is(T : int) && isIntegral!T) { m_dst.put(toBsonData(cast(int)value)); }
 		else static if (is(T : long) && isIntegral!T) { m_dst.put(toBsonData(value)); }
 		else static if (is(T : double) && isFloatingPoint!T) { m_dst.put(toBsonData(cast(double)value)); }
-		else static if (isBsonSerializable!T) m_dst.put(value.toBson().data);
-		else static if (isJsonSerializable!T) m_dst.put(Bson(value.toJson()).data);
-		else static if (is(T : const(ubyte)[])) { writeValueH!(BsonBinData, false)(BsonBinData(BsonBinData.Type.generic, value.idup)); }
+		else static if (isBsonSerializable!T) {
+			static if (!__traits(compiles, () @safe { return value.toBson(); } ()))
+				pragma(msg, "Non-@safe toBson/fromBson methods are deprecated - annotate "~T.stringof~".toBson() with @safe.");
+			m_dst.put(() @trusted { return value.toBson(); } ().data);
+		} else static if (isJsonSerializable!T) {
+			static if (!__traits(compiles, () @safe { return value.toJson(); } ()))
+				pragma(msg, "Non-@safe toJson/fromJson methods are deprecated - annotate "~T.stringof~".toJson() with @safe.");
+			m_dst.put(Bson(() @trusted { return value.toJson(); } ()).data);
+		} else static if (is(T : const(ubyte)[])) { writeValueH!(BsonBinData, false)(BsonBinData(BsonBinData.Type.generic, value.idup)); }
 		else static assert(false, "Unsupported type: " ~ T.stringof);
 	}
 
@@ -1493,9 +1499,17 @@ struct BsonSerializer {
 			if (m_inputData.type == Bson.Type.string) return SysTime.fromISOExtString(m_inputData.get!string);
 			else return m_inputData.get!BsonDate().toSysTime();
 		}
-		else static if (isBsonSerializable!T) return T.fromBson(readValue!(Traits, Bson));
-		else static if (isJsonSerializable!T) return T.fromJson(readValue!(Traits, Bson).toJson());
-		else static if (is(T : const(ubyte)[])) {
+		else static if (isBsonSerializable!T) {
+			static if (!__traits(compiles, () @safe { return T.fromBson(Bson.init); } ()))
+				pragma(msg, "Non-@safe toBson/fromBson methods are deprecated - annotate "~T.stringof~".fromBson() with @safe.");
+			auto bval = readValue!(Traits, Bson);
+			return () @trusted { return T.fromBson(bval); } ();
+		} else static if (isJsonSerializable!T) {
+			static if (!__traits(compiles, () @safe { return T.fromJson(Json.init); } ()))
+				pragma(msg, "Non-@safe toJson/fromJson methods are deprecated - annotate "~T.stringof~".fromJson() with @safe.");
+			auto jval = readValue!(Traits, Bson).toJson();
+			return () @trusted { return T.fromJson(jval); } ();
+		} else static if (is(T : const(ubyte)[])) {
 			auto ret = m_inputData.get!BsonBinData.rawData;
 			static if (isStaticArray!T) return cast(T)ret[0 .. T.length];
 			else static if (is(T : immutable(char)[])) return ret;
