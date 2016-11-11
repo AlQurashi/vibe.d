@@ -166,6 +166,13 @@ void connectWebSocket(URL url, scope WebSocketHandshakeDelegate del, const(HTTPC
 		}
 	);
 }
+/// ditto
+deprecated("Use an @safe handshake callback.")
+void connectWebSocket(URL url, scope void delegate(scope WebSocket) @system del, const(HTTPClientSettings) settings = defaultSettings)
+@safe {
+	connectWebSocket(url, (scope ws) @trusted => del(ws), settings);
+}
+
 
 /**
 	Establishes a web socket conection and passes it to the $(D on_handshake) delegate.
@@ -216,6 +223,13 @@ void handleWebSocket(scope WebSocketHandshakeDelegate on_handshake, scope HTTPSe
 	}
 	socket.close();
 }
+/// ditto
+deprecated("Use an @safe handshake callback.")
+void handleWebSocket(scope void delegate(scope WebSocket) @system on_handshake, scope HTTPServerRequest req, scope HTTPServerResponse res)
+@safe {
+	handleWebSocket((scope ws) @trusted => on_handshake(ws), req, res);
+}
+
 
 /**
 	Returns a HTTP request handler that establishes web socket conections.
@@ -271,6 +285,18 @@ HTTPServerRequestDelegateS handleWebSockets(WebSocketHandshakeDelegate on_handsh
 		});
 	}
 	return &callback;
+}
+/// ditto
+deprecated("Use an @safe handshake callback.")
+HTTPServerRequestDelegateS handleWebSockets(void delegate(scope WebSocket) @system on_handshake)
+@safe {
+	return handleWebSockets(delegate (scope ws) @trusted => on_handshake(ws));
+}
+/// ditto
+deprecated("Use an @safe handshake callback.")
+HTTPServerRequestDelegateS handleWebSockets(void function(scope WebSocket) @system on_handshake)
+@safe {
+	return handleWebSockets(delegate (scope ws) @trusted => on_handshake(ws));
 }
 
 
