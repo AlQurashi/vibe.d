@@ -1183,7 +1183,7 @@ final class InotifyDirectoryWatcher : DirectoryWatcher {
 		do
 		{
 			for (size_t i = 0; i < nread;) {
-				auto ev = (cast(inotify_event[])buf[i .. i+inotify_event.sizeof])[0];
+				auto ev = &(cast(inotify_event[])buf[i .. i+inotify_event.sizeof])[0];
 				if (ev.wd !in m_watches) {
 					logDebug("Got unknown inotify watch ID %s. Ignoring.", ev.wd);
 					continue;
@@ -1198,7 +1198,7 @@ final class InotifyDirectoryWatcher : DirectoryWatcher {
 					type = DirectoryChangeType.modified;
 
 				import std.path : buildPath;
-				auto name = ev.name[0 .. () @trusted { return ev.name.ptr.strlen; } ()];
+				auto name = () @trusted { return ev.name.ptr[0 .. ev.name.ptr.strlen]; } ();
 				auto path = Path(buildPath(m_watches[ev.wd], name));
 
 				dst ~= DirectoryChange(type, path);
