@@ -219,6 +219,13 @@ final class URLRouter : HTTPServerRequestHandler {
 	}
 
 	template isValidHandler(Handler) {
+		@system {
+			alias USDel = void delegate(HTTPServerRequest, HTTPServerResponse) @system;
+			alias USFun = void function(HTTPServerRequest, HTTPServerResponse) @system;
+			alias USDelS = void delegate(scope HTTPServerRequest, scope HTTPServerResponse) @system;
+			alias USFunS = void function(scope HTTPServerRequest, scope HTTPServerResponse) @system;
+		}
+
 		static if (
 				is(Handler : HTTPServerRequestDelegate) ||
 				is(Handler : HTTPServerRequestFunction) ||
@@ -230,10 +237,8 @@ final class URLRouter : HTTPServerRequestHandler {
 		{
 			enum isValidHandler = true;
 		} else static if (
-				is(Handler : void delegate(HTTPServerRequest, HTTPServerResponse) @system) ||
-				is(Handler : void function(HTTPServerRequest, HTTPServerResponse) @system) ||
-				is(Handler : void delegate(scope HTTPServerRequest, scope HTTPServerResponse) @system) ||
-				is(Handler : void function(scope HTTPServerRequest, scope HTTPServerResponse) @system)
+				is(Handler : USDel) || is(Handler : USFun) ||
+				is(Handler : USDelS) || is(Handler : USFunS)
 			)
 		{
 			enum isValidHandler = true;
