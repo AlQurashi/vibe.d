@@ -336,7 +336,7 @@ final class HTTPClient {
 	*/
 	void connect(string server, ushort port = 80, bool use_tls = false, const(HTTPClientSettings) settings = defaultSettings)
 	{
-		assert(!!m_conn);
+		assert(!m_conn);
 		assert(port != 0);
 		disconnect();
 		m_conn = TCPConnection.init;
