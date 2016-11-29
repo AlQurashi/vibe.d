@@ -306,7 +306,7 @@ enum MongoAuthMechanism
 }
 
 private MongoAuthMechanism parseAuthMechanism(string str)
-{
+@safe {
 	switch (str) {
 		case "SCRAM-SHA-1": return MongoAuthMechanism.scramSHA1;
 		case "MONGODB-CR": return MongoAuthMechanism.mongoDBCR;
